@@ -389,8 +389,8 @@ Scenario: Consumer skips malformed event and continues stream
 ## References
 
 - Scala Ninja Review: `working/ScalaNinjaReview-KafkaStreaming-2025-10-16.md` (P0-3)
-- Actor Implementation: `test-probe-core/src/main/scala/com/company/probe/core/actors/KafkaProducerStreamingActor.scala`
-- Error Models: `test-probe-core/src/main/scala/com/company/probe/core/pubsub/models/PubSubModels.scala`
+- Actor Implementation: `test-probe-core/src/main/scala/io/distia/probe/core/actors/KafkaProducerStreamingActor.scala`
+- Error Models: `test-probe-core/src/main/scala/io/distia/probe/core/pubsub/models/PubSubModels.scala`
 
 ---
 

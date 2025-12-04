@@ -189,7 +189,7 @@ All implementations throw consistent exception types:
 - **Implementation Plan:** `working/blockStorage/BlockStorageImplementationPlan.md`
 - **Topic Directive Model:** [topic-directive-model.md](../../api/topic-directive-model.md)
 - **Service Architecture:** [04.1-block-storage-architecture.md](../blueprint/04%20Adapters/04.1-block-storage-architecture.md)
-- **VaultService Pattern:** `test-probe-services/src/main/scala/com/company/probe/services/vault/`
+- **VaultService Pattern:** `test-probe-services/src/main/scala/io/distia/probe/services/vault/`
 
 ---
 

@@ -351,8 +351,8 @@ Note: Supervision is part of the default factory, not the TestExecutionActor. Th
 - Akka Testing: https://doc.akka.io/docs/akka/current/typed/testing.html
 - Dependency Injection in Scala: https://di-in-scala.github.io/
 - Blueprint: [05.1-test-execution-actor-fsm.md](../blueprint/05%20State%20Machine/05.1-test-execution-actor-fsm.md) (Section: Factory Injection Pattern)
-- Implementation: `test-probe-core/src/main/scala/com/company/probe/core/actors/TestExecutionActor.scala:38-129`
-- Test Usage: `test-probe-core/src/test/scala/com/company/probe/core/glue/world/ActorWorld.scala`
+- Implementation: `test-probe-core/src/main/scala/io/distia/probe/core/actors/TestExecutionActor.scala:38-129`
+- Test Usage: `test-probe-core/src/test/scala/io/distia/probe/core/glue/world/ActorWorld.scala`
 
 ---
 

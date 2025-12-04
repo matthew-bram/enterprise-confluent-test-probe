@@ -654,7 +654,7 @@ Error: Missing 'value' field in event filter
 - **Circe YAML:** https://circe.github.io/circe-yaml/
 - **YAML Spec:** https://yaml.org/spec/1.2.2/
 - **YAML Best Practices:** https://docs.ansible.com/ansible/latest/reference_appendices/YAMLSyntax.html
-- **TopicDirective Model:** `test-probe-common/src/main/scala/com/company/probe/common/models/TopicDirective.scala`
+- **TopicDirective Model:** `test-probe-common/src/main/scala/io/distia/probe/common/models/TopicDirective.scala`
 - **Rosetta Vault Mapping:** `docs/api/rosetta-vault-mapping-api.md`
 
 ---

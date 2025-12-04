@@ -274,17 +274,17 @@ object JaasConfigBuilder {
 ### 6. Implementation Modules
 
 ```
-test-probe-common/src/main/scala/com/company/probe/common/rosetta/
+test-probe-common/src/main/scala/io/distia/probe/common/rosetta/
 ├── RosettaMapper.scala           # Generic JSONPath + transformation engine
 ├── RosettaTransformations.scala  # Generic transformation ADT + implementations
 └── RosettaConfig.scala           # Generic mapping configuration model + parsers
 
-test-probe-services/src/main/scala/com/company/probe/services/vault/
+test-probe-services/src/main/scala/io/distia/probe/services/vault/
 ├── RequestBodyBuilder.scala      # Request template variable substitution (NEW)
 ├── VaultCredentialsMapper.scala  # Vault-specific VaultCredentials mapper
 └── JaasConfigBuilder.scala       # Kafka JAAS-specific config construction
 
-test-probe-services/src/main/scala/com/company/probe/services/builder/modules/
+test-probe-services/src/main/scala/io/distia/probe/services/builder/modules/
 ├── AzureVaultService.scala       # Azure Vault integration (uses RequestBodyBuilder)
 ├── AwsVaultService.scala         # AWS Secrets Manager integration
 └── LocalVaultService.scala       # Local file-based vault (for testing)
@@ -450,10 +450,10 @@ Use GraphQL query syntax for field selection.
 ## References
 
 **Implementation Files:**
-- RequestBodyBuilder: `test-probe-services/src/main/scala/com/company/probe/services/vault/RequestBodyBuilder.scala` (150 lines)
-- AzureVaultService: `test-probe-services/src/main/scala/com/company/probe/services/builder/modules/AzureVaultService.scala` (lines 118-162: invokeVault)
-- VaultCredentialsMapper: `test-probe-services/src/main/scala/com/company/probe/services/vault/VaultCredentialsMapper.scala`
-- JaasConfigBuilder: `test-probe-services/src/main/scala/com/company/probe/services/vault/JaasConfigBuilder.scala`
+- RequestBodyBuilder: `test-probe-services/src/main/scala/io/distia/probe/services/vault/RequestBodyBuilder.scala` (150 lines)
+- AzureVaultService: `test-probe-services/src/main/scala/io/distia/probe/services/builder/modules/AzureVaultService.scala` (lines 118-162: invokeVault)
+- VaultCredentialsMapper: `test-probe-services/src/main/scala/io/distia/probe/services/vault/VaultCredentialsMapper.scala`
+- JaasConfigBuilder: `test-probe-services/src/main/scala/io/distia/probe/services/vault/JaasConfigBuilder.scala`
 
 **Documentation:**
 - API Reference: `docs/api/rosetta-vault-mapping-api.md` (comprehensive guide with examples)

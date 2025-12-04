@@ -480,10 +480,10 @@ RequestBodyBuilder.build(topicDirective, rosettaConfig, appConfig) match {
 
 ## References
 
-- **RequestBodyBuilder**: `test-probe-services/src/main/scala/com/company/probe/services/vault/RequestBodyBuilder.scala`
-- **VaultCredentialsMapper**: `test-probe-services/src/main/scala/com/company/probe/services/vault/VaultCredentialsMapper.scala`
-- **AzureVaultService**: `test-probe-services/src/main/scala/com/company/probe/services/builder/modules/AzureVaultService.scala`
-- **RosettaConfig Model**: `test-probe-common/src/main/scala/com/company/probe/common/rosetta/RosettaConfig.scala`
+- **RequestBodyBuilder**: `test-probe-services/src/main/scala/io/distia/probe/services/vault/RequestBodyBuilder.scala`
+- **VaultCredentialsMapper**: `test-probe-services/src/main/scala/io/distia/probe/services/vault/VaultCredentialsMapper.scala`
+- **AzureVaultService**: `test-probe-services/src/main/scala/io/distia/probe/services/builder/modules/AzureVaultService.scala`
+- **RosettaConfig Model**: `test-probe-common/src/main/scala/io/distia/probe/common/rosetta/RosettaConfig.scala`
 
 ---
 

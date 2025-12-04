@@ -122,19 +122,19 @@ Testcontainers with Schema Registry 7.5.0 exhibits same limitation as production
 #### Unit Tests Created
 
 1. **`SchemaRegistryEncoderSpec.scala`** (NEW - 35 tests created, 2 removed)
-   - Location: `test-probe-core/src/test/scala/com/company/probe/core/pubsub/`
+   - Location: `test-probe-core/src/test/scala/io/distia/probe/core/pubsub/`
    - 33 passing tests (AVRO: 11, Protobuf direct: 11, JSON direct: 11)
    - Removed: Lines 687-713 (2 orchestrator tests using `getSchemaType()`)
 
 2. **`SchemaRegistryDecoderSpec.scala`** (NEW - 30 tests created, 2 removed)
-   - Location: `test-probe-core/src/test/scala/com/company/probe/core/pubsub/`
+   - Location: `test-probe-core/src/test/scala/io/distia/probe/core/pubsub/`
    - 28 passing tests (AVRO: 10, Protobuf direct: 9, JSON direct: 9)
    - Removed: Lines 700-734 (2 orchestrator tests using `getSchemaType()`)
 
 #### Production Bug Fix
 
 3. **`SchemaRegistryDecoder.scala`** (CRITICAL BUG FIX)
-   - Location: `test-probe-core/src/main/scala/com/company/probe/core/pubsub/`
+   - Location: `test-probe-core/src/main/scala/io/distia/probe/core/pubsub/`
    - Line 69: Fixed Avro Utf8 key conversion in headers map
    ```scala
    // BEFORE - BROKEN (headers inaccessible)
@@ -245,8 +245,8 @@ Testcontainers with Schema Registry 7.5.0 exhibits same limitation as production
 
 ### Code Locations
 
-- **Unit Tests**: `test-probe-core/src/test/scala/com/company/probe/core/pubsub/SchemaRegistry*Spec.scala`
-- **Production Code**: `test-probe-core/src/main/scala/com/company/probe/core/pubsub/SchemaRegistry*.scala`
+- **Unit Tests**: `test-probe-core/src/test/scala/io/distia/probe/core/pubsub/SchemaRegistry*Spec.scala`
+- **Production Code**: `test-probe-core/src/main/scala/io/distia/probe/core/pubsub/SchemaRegistry*.scala`
 - **Component Tests**: `test-probe-core/src/test/resources/features/component/streaming/*.feature`
 
 ### External References

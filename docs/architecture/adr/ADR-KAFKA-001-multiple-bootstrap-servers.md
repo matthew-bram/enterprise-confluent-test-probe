@@ -463,7 +463,7 @@ Error: `InvalidBootstrapServersException: Bootstrap servers "invalid-format" has
 - **ADR-STORAGE-008:** Topic Directive YAML Format
 - **Topic Directive Model API:** `docs/api/topic-directive-model.md`
 - **Kafka Streaming Architecture:** `docs/architecture/blueprint/10 Kafka Streaming/10.1-kafka-streaming-architecture.md`
-- **TopicDirective Source:** `test-probe-common/src/main/scala/com/company/probe/common/models/TopicDirective.scala`
+- **TopicDirective Source:** `test-probe-common/src/main/scala/io/distia/probe/common/models/TopicDirective.scala`
 
 ---
 

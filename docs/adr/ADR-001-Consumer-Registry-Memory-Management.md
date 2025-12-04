@@ -183,8 +183,8 @@ case FetchConsumedEvent(eventTestId, replyTo, deleteAfterFetch) =>
 ## References
 
 - Scala Ninja Review: `working/ScalaNinjaReview-KafkaStreaming-2025-10-16.md` (P0-1)
-- Actor Implementation: `test-probe-core/src/main/scala/com/company/probe/core/actors/KafkaConsumerStreamingActor.scala`
-- DSL Implementation: `test-probe-core/src/main/scala/com/company/probe/core/pubsub/ProbeScalaDsl.scala`
+- Actor Implementation: `test-probe-core/src/main/scala/io/distia/probe/core/actors/KafkaConsumerStreamingActor.scala`
+- DSL Implementation: `test-probe-core/src/main/scala/io/distia/probe/core/pubsub/ProbeScalaDsl.scala`
 
 ---
 

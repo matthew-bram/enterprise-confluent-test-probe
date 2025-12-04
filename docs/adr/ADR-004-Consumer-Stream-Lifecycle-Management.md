@@ -270,7 +270,7 @@ commitFlow.commitScaladsl().onComplete { _ =>
 ## References
 
 - Scala Ninja Review: `working/ScalaNinjaReview-KafkaStreaming-2025-10-16.md` (P0-4)
-- Actor Implementation: `test-probe-core/src/main/scala/com/company/probe/core/actors/KafkaConsumerStreamingActor.scala`
+- Actor Implementation: `test-probe-core/src/main/scala/io/distia/probe/core/actors/KafkaConsumerStreamingActor.scala`
 - Pekko Streams Lifecycle: https://pekko.apache.org/docs/pekko/current/stream/stream-quickstart.html
 
 ---

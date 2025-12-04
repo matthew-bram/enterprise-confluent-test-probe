@@ -295,9 +295,9 @@ vertx.createHttpServer()
 
 ### Files
 
-**HTTP Server Bootstrap:** `/test-probe-interfaces/src/main/scala/com/company/probe/interfaces/bootstrap/InterfacesBootstrap.scala`
+**HTTP Server Bootstrap:** `/test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/bootstrap/InterfacesBootstrap.scala`
 
-**Routes:** `/test-probe-interfaces/src/main/scala/com/company/probe/interfaces/rest/RestRoutes.scala` (256 lines)
+**Routes:** `/test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/rest/RestRoutes.scala` (256 lines)
 
 **Configuration:** `/test-probe-interfaces/src/main/resources/reference.conf` (Pekko HTTP settings)
 

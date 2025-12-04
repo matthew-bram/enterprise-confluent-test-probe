@@ -237,9 +237,9 @@ If parallel test execution becomes a critical requirement:
 ## References
 
 - `working/bringBackIntegrationTests/IMPLEMENTATION-PLAN.md` - Phase 4 original design
-- `test-probe-core/src/main/scala/com/company/probe/core/pubsub/ProbeScalaDsl.scala` - Global state
-- `test-probe-core/src/test/scala/com/company/probe/core/testutil/TestcontainersManager.scala` - Singleton pattern
-- `test-probe-core/src/main/scala/com/company/probe/core/services/cucumber/CucumberContext.scala` - ThreadLocal isolation
+- `test-probe-core/src/main/scala/io/distia/probe/core/pubsub/ProbeScalaDsl.scala` - Global state
+- `test-probe-core/src/test/scala/io/distia/probe/core/testutil/TestcontainersManager.scala` - Singleton pattern
+- `test-probe-core/src/main/scala/io/distia/probe/core/services/cucumber/CucumberContext.scala` - ThreadLocal isolation
 - `ADR-TESTING-004-testcontainers-kubernetes-isolation.md` - Related Testcontainers decision
 
 ---

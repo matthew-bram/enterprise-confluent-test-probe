@@ -232,8 +232,8 @@ Blueprints provide detailed technical documentation for specific components and 
 
 **Related Test Documentation:**
 - BDD Feature File: `test-probe-core/src/test/resources/features/component/actor-lifecycle/guardian-actor.feature`
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/GuardianActorSteps.scala`
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/GuardianActorSpec.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/GuardianActorSteps.scala`
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/GuardianActorSpec.scala`
 
 ### 03 APIs
 
@@ -371,14 +371,14 @@ Blueprints provide detailed technical documentation for specific components and 
    - Location: [04.1-service-layer-architecture.md](./blueprint/04%20Adapters/04.1-service-layer-architecture.md#architecture-pattern)
 
 **Implementation Files:**
-- Service Trait: `test-probe-core/src/main/scala/com/company/probe/core/builder/modules/package.scala`
-- Function Bundles: `test-probe-core/src/main/scala/com/company/probe/core/builder/*ServiceFunctions.scala`
-- Service Implementations: `test-probe-services/src/main/scala/com/company/probe/services/builder/modules/`
+- Service Trait: `test-probe-core/src/main/scala/io/distia/probe/core/builder/modules/package.scala`
+- Function Bundles: `test-probe-core/src/main/scala/io/distia/probe/core/builder/*ServiceFunctions.scala`
+- Service Implementations: `test-probe-services/src/main/scala/io/distia/probe/services/builder/modules/`
   - LocalBlockStorageService.scala (240 lines)
   - AwsBlockStorageService.scala (330 lines)
   - AzureBlockStorageService.scala (330 lines)
   - GcpBlockStorageService.scala (340 lines)
-- Test Helpers: `test-probe-core/src/test/scala/com/company/probe/core/helpers/ServiceFunctionsTestHelper.scala`
+- Test Helpers: `test-probe-core/src/test/scala/io/distia/probe/core/helpers/ServiceFunctionsTestHelper.scala`
 
 **Related ADRs:**
 - [ADR-VAULT-001: Rosetta Bidirectional Mapping Pattern](./adr/ADR-VAULT-001-rosetta-mapping-pattern.md) **UPDATED 2025-10-23**
@@ -443,8 +443,8 @@ Blueprints provide detailed technical documentation for specific components and 
 
 **Related Test Documentation:**
 - BDD Feature File: `test-probe-core/src/test/resources/features/component/actor-lifecycle/test-execution-actor-fsm.feature`
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/TestExecutionActorSteps.scala`
-- Test Fixtures: `test-probe-core/src/test/scala/com/company/probe/core/fixtures/TestExecutionActorFixtures.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/TestExecutionActorSteps.scala`
+- Test Fixtures: `test-probe-core/src/test/scala/io/distia/probe/core/fixtures/TestExecutionActorFixtures.scala`
 
 ### 06 Triggers
 
@@ -503,8 +503,8 @@ Blueprints provide detailed technical documentation for specific components and 
 
 **Related Test Documentation:**
 - BDD Feature File: `test-probe-core/src/test/resources/features/component/actor-lifecycle/queue-actor.feature`
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/QueueActorSteps.scala`
-- Test Fixtures: `test-probe-core/src/test/scala/com/company/probe/core/fixtures/QueueActorFixtures.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/QueueActorSteps.scala`
+- Test Fixtures: `test-probe-core/src/test/scala/io/distia/probe/core/fixtures/QueueActorFixtures.scala`
 
 ### 09 CI/CD
 
@@ -672,13 +672,13 @@ Blueprints provide detailed technical documentation for specific components and 
 ### GuardianActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/GuardianActor.scala` (266 lines)
-- Commands: `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/GuardianActor.scala` (266 lines)
+- Commands: `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/GuardianActorSpec.scala` (18 tests, 90% coverage)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/GuardianActorSpec.scala` (18 tests, 90% coverage)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/actor-lifecycle/guardian-actor.feature` (6 scenarios)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/GuardianActorSteps.scala` (448 lines)
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/GuardianActorSteps.scala` (448 lines)
 
 **Working Documents (Historical):**
 - Implementation Plan: `working/GuardianActorImplementationPlan.md`
@@ -688,14 +688,14 @@ Blueprints provide detailed technical documentation for specific components and 
 ### QueueActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/QueueActor.scala` (444 lines)
-- Commands: `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/QueueActor.scala` (444 lines)
+- Commands: `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/QueueActorSpec.scala` (18 tests)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/QueueActorSpec.scala` (18 tests)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/actor-lifecycle/queue-actor.feature` (18 scenarios)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/QueueActorSteps.scala`
-- Fixtures: `test-probe-core/src/test/scala/com/company/probe/core/fixtures/QueueActorFixtures.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/QueueActorSteps.scala`
+- Fixtures: `test-probe-core/src/test/scala/io/distia/probe/core/fixtures/QueueActorFixtures.scala`
 
 **Working Documents (Historical):**
 - Implementation Plan: `working/QueueActorImplementationPlan.md`
@@ -704,9 +704,9 @@ Blueprints provide detailed technical documentation for specific components and 
 ### TestExecutionActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/TestExecutionActor.scala` (706 lines)
-- States & Data: `test-probe-core/src/main/scala/com/company/probe/core/actors/TestExecutionActorStatesData.scala` (57 lines)
-- Commands: `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/TestExecutionActor.scala` (706 lines)
+- States & Data: `test-probe-core/src/main/scala/io/distia/probe/core/actors/TestExecutionActorStatesData.scala` (57 lines)
+- Commands: `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
 
 **7-State FSM:**
 - Setup → Loading → Loaded → Testing → Completed | Exception → ShuttingDown → Stopped
@@ -716,11 +716,11 @@ Blueprints provide detailed technical documentation for specific components and 
 - Poison pill timers for Setup, Completed, and Exception states
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/TestExecutionActorSpec.scala` (83 tests)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/TestExecutionActorSpec.scala` (83 tests)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/actor-lifecycle/test-execution-actor-fsm.feature` (471 lines)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/TestExecutionActorSteps.scala` (551 lines)
-- World/Context: `test-probe-core/src/test/scala/com/company/probe/core/glue/world/ActorWorld.scala`
-- Fixtures: `test-probe-core/src/test/scala/com/company/probe/core/fixtures/TestExecutionActorFixtures.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/TestExecutionActorSteps.scala` (551 lines)
+- World/Context: `test-probe-core/src/test/scala/io/distia/probe/core/glue/world/ActorWorld.scala`
+- Fixtures: `test-probe-core/src/test/scala/io/distia/probe/core/fixtures/TestExecutionActorFixtures.scala`
 
 **Child Actor Integration:**
 - Factory injection pattern for all 5 child actors
@@ -746,8 +746,8 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 #### BlockStorageActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/BlockStorageActor.scala` (191 lines)
-- Commands: `BlockStorageCommands` in `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/BlockStorageActor.scala` (191 lines)
+- Commands: `BlockStorageCommands` in `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
 
 **Responsibilities:**
 - Stream test data from S3 bucket to jimfs local file system (stub)
@@ -755,9 +755,9 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 - Message protocol: Initialize → BlockStorageFetched, ChildGoodToGo | LoadToBlockStorage → BlockStorageUploadComplete
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/BlockStorageActorSpec.scala` (16 tests)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/BlockStorageActorSpec.scala` (16 tests)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/child-actors/block-storage-actor.feature` (14 scenarios)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/BlockStorageActorSteps.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/BlockStorageActorSteps.scala`
 
 **Working Documents (Historical):**
 - Implementation Plan: `working/ChildActorsImplementationPlan.md`
@@ -766,8 +766,8 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 #### VaultActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/VaultActor.scala` (162 lines)
-- Commands: `VaultCommands` in `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/VaultActor.scala` (162 lines)
+- Commands: `VaultCommands` in `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
 
 **Responsibilities:**
 - Fetch client ID and client secret from Vault based on BlockStorageDirective (stub)
@@ -775,9 +775,9 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 - Security: All credentials redacted in logs
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/VaultActorSpec.scala` (8 tests)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/VaultActorSpec.scala` (8 tests)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/child-actors/vault-actor.feature` (10 scenarios)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/VaultActorSteps.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/VaultActorSteps.scala`
 
 **Security:**
 - Security warning banner in source file
@@ -787,8 +787,8 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 #### CucumberExecutionActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/CucumberExecutionActor.scala` (312 lines) **UPDATED 2025-10-20**
-- Commands: `CucumberExecutionCommands` in `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/CucumberExecutionActor.scala` (312 lines) **UPDATED 2025-10-20**
+- Commands: `CucumberExecutionCommands` in `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
   - Added: `TestExecutionComplete(result: Either[Throwable, TestExecutionResult])` for pipeToSelf pattern
 
 **Responsibilities:**
@@ -804,7 +804,7 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 - **Event-Based Results**: ConcurrentEventListener accumulates statistics in real-time
 - **Blocking Execution**: Main.run() blocks inside Future on dedicated dispatcher (30s-5min typical)
 
-**Service Layer** (`test-probe-core/src/main/scala/com/company/probe/core/services/cucumber/`):
+**Service Layer** (`test-probe-core/src/main/scala/io/distia/probe/core/services/cucumber/`):
 - TestExecutionEventListener.scala (237 lines) - Event-based result collection
 - TestExecutionListenerRegistry.scala (120 lines) - ThreadLocal registry
 - CucumberConfiguration.scala (332 lines) - Type-safe configuration builder
@@ -812,10 +812,10 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 - io.distia.probe.core.glue/package.scala (75 lines) - Framework glue package
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/CucumberExecutionActorSpec.scala` (12 tests)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/CucumberExecutionActorSpec.scala` (12 tests)
 - Service Tests: 70+ new tests (TestExecutionListenerRegistry: 14, CucumberConfiguration: 40+, CucumberExecutor: 20+)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/child-actors/cucumber-execution-actor.feature` (12 scenarios)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/CucumberExecutionActorSteps.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/CucumberExecutionActorSteps.scala`
 - **Total**: 409/411 tests passing (99.5%)
 
 **Configuration:**
@@ -834,8 +834,8 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 #### KafkaProducerActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/KafkaProducerActor.scala` (189 lines)
-- Commands: `KafkaProducerCommands` in `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/KafkaProducerActor.scala` (189 lines)
+- Commands: `KafkaProducerCommands` in `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
 
 **Responsibilities:**
 - Configure Kafka producers with credentials (stub)
@@ -844,9 +844,9 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 - Security: All credentials redacted in logs
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/KafkaProducerActorSpec.scala` (12 tests)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/KafkaProducerActorSpec.scala` (12 tests)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/child-actors/kafka-producer-actor.feature` (8 scenarios)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/KafkaProducerActorSteps.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/KafkaProducerActorSteps.scala`
 
 **Security:**
 - Security warning banner in source file
@@ -855,8 +855,8 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 #### KafkaConsumerActor
 
 **Core Implementation:**
-- Actor: `test-probe-core/src/main/scala/com/company/probe/core/actors/KafkaConsumerActor.scala` (189 lines)
-- Commands: `KafkaConsumerCommands` in `test-probe-core/src/main/scala/com/company/probe/core/models/ActorCommands.scala`
+- Actor: `test-probe-core/src/main/scala/io/distia/probe/core/actors/KafkaConsumerActor.scala` (189 lines)
+- Commands: `KafkaConsumerCommands` in `test-probe-core/src/main/scala/io/distia/probe/core/models/ActorCommands.scala`
 
 **Responsibilities:**
 - Configure Kafka consumers with credentials (stub)
@@ -865,9 +865,9 @@ All child actors spawned by TestExecutionActor are fully implemented with messag
 - Security: All credentials redacted in logs
 
 **Testing:**
-- Unit Tests: `test-probe-core/src/test/scala/com/company/probe/core/actors/KafkaConsumerActorSpec.scala` (12 tests)
+- Unit Tests: `test-probe-core/src/test/scala/io/distia/probe/core/actors/KafkaConsumerActorSpec.scala` (12 tests)
 - BDD Feature: `test-probe-core/src/test/resources/features/component/child-actors/kafka-consumer-actor.feature` (8 scenarios)
-- Step Definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/KafkaConsumerActorSteps.scala`
+- Step Definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/KafkaConsumerActorSteps.scala`
 
 **Security:**
 - Security warning banner in source file

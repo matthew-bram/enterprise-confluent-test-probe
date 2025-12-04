@@ -96,7 +96,7 @@ Then("""the event should be skipped with warning log""") { () =>
 
 **Implementation Checklist:**
 - [ ] Locate LogCapture utility in archive
-- [ ] Move to `test-probe-core/src/test/scala/com/company/probe/core/fixtures/LogCapture.scala`
+- [ ] Move to `test-probe-core/src/test/scala/io/distia/probe/core/fixtures/LogCapture.scala`
 - [ ] Mix into `TestHarnessFixtures`
 - [ ] Update 2 consumer/producer steps
 - [ ] Verify tests pass with actual log capture
@@ -107,7 +107,7 @@ Then("""the event should be skipped with warning log""") { () =>
 
 **Status:** ⚠️ **Stub implementation created**
 
-**Location:** `test-probe-core/src/test/scala/com/company/probe/core/fixtures/OpenTelemetryFixtures.scala`
+**Location:** `test-probe-core/src/test/scala/io/distia/probe/core/fixtures/OpenTelemetryFixtures.scala`
 
 **Current Behavior:**
 - Prints warning to console when used
@@ -187,7 +187,7 @@ trait OpenTelemetryFixtures:
 
 **Status:** ⚠️ **Documentation stub created**
 
-**Location:** `test-probe-core/src/test/scala/com/company/probe/core/fixtures/DispatcherVerification.scala`
+**Location:** `test-probe-core/src/test/scala/io/distia/probe/core/fixtures/DispatcherVerification.scala`
 
 **Current Behavior:**
 - Executes test code (behavior verified)

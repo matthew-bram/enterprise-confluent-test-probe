@@ -264,13 +264,13 @@ case class NotFoundErrorResponse(resourceType: String, resourceId: String)
 
 ### Files
 
-**Model:** `/test-probe-interfaces/src/main/scala/com/company/probe/interfaces/rest/RestErrorResponse.scala` (97 lines)
+**Model:** `/test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/rest/RestErrorResponse.scala` (97 lines)
 
-**Exception Handler:** `/test-probe-interfaces/src/main/scala/com/company/probe/interfaces/rest/RestExceptionHandler.scala` (130 lines)
+**Exception Handler:** `/test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/rest/RestExceptionHandler.scala` (130 lines)
 
-**Rejection Handler:** `/test-probe-interfaces/src/main/scala/com/company/probe/interfaces/rest/RestRejectionHandler.scala` (99 lines)
+**Rejection Handler:** `/test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/rest/RestRejectionHandler.scala` (99 lines)
 
-**Tests:** `/test-probe-interfaces/src/test/scala/com/company/probe/interfaces/rest/RestErrorResponseSpec.scala` (360 lines, 18 tests)
+**Tests:** `/test-probe-interfaces/src/test/scala/io/distia/probe/interfaces/rest/RestErrorResponseSpec.scala` (360 lines, 18 tests)
 
 ### Example Usage
 

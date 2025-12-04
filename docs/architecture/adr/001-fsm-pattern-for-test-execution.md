@@ -186,7 +186,7 @@ class LoadingState extends State { ... }
 
 ## Implementation Notes
 
-**File:** `test-probe-core/src/main/scala/com/company/probe/core/actors/TestExecutionActor.scala`
+**File:** `test-probe-core/src/main/scala/io/distia/probe/core/actors/TestExecutionActor.scala`
 
 **Key patterns:**
 1. Each state behavior is a pure function of (state, message) → next state
@@ -198,7 +198,7 @@ class LoadingState extends State { ... }
 **Testing:**
 - BDD scenarios: 471 lines covering all state transitions
 - Feature file: `test-probe-core/src/test/resources/features/component/actor-lifecycle/test-execution-actor-fsm.feature`
-- Step definitions: `test-probe-core/src/test/scala/com/company/probe/core/glue/steps/TestExecutionActorSteps.scala`
+- Step definitions: `test-probe-core/src/test/scala/io/distia/probe/core/glue/steps/TestExecutionActorSteps.scala`
 
 ## Related Decisions
 

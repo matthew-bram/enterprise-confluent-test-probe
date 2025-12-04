@@ -1,7 +1,7 @@
 # Scala Ninja Code Review: RequestBodyBuilder.scala
 
 **Date**: 2025-10-23
-**File**: `/Users/matthewbram/projects/test-probe/test-probe-services/src/main/scala/com/company/probe/services/vault/RequestBodyBuilder.scala`
+**File**: `/Users/matthewbram/projects/test-probe/test-probe-services/src/main/scala/io/distia/probe/services/vault/RequestBodyBuilder.scala`
 **Lines of Code**: 161
 **Reviewer**: Scala Ninja (Expert-Level Peer Review Agent)
 

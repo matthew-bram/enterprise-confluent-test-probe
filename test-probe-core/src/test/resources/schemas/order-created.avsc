@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "OrderCreatedAvro",
-  "namespace": "com.company.probe.core.testmodels",
+  "namespace": "io.distia.probe.core.testmodels",
   "doc": "OrderCreated event schema for Avro serialization. Used for polymorphic event testing.",
   "fields": [
     {"name": "eventType", "type": "string", "default": "OrderCreated", "doc": "Event type discriminator"},

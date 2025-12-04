@@ -101,7 +101,7 @@ Covers:
 
 ```
 test-probe-java-api/
-├── src/main/java/com/company/probe/javaapi/
+├── src/main/java/io/distia/probe/javaapi/
 │   └── ProbeJavaDsl.java        # Main API class
 ├── pom.xml                       # Maven configuration
 └── README.md                     # This file

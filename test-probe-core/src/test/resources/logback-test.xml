@@ -8,10 +8,10 @@
   </appender>
 
   <!-- Project actors - keep at INFO to see important messages -->
-  <logger name="com.company.probe.core.actors" level="INFO"/>
+  <logger name="io.distia.probe.core.actors" level="INFO"/>
 
   <!-- ProbeScalaDsl and pubsub - critical for debugging integration tests -->
-  <logger name="com.company.probe.core.pubsub" level="DEBUG"/>
+  <logger name="io.distia.probe.core.pubsub" level="DEBUG"/>
 
   <!-- Pekko system logging - INFO to see actorSystem.log.info() calls -->
   <logger name="org.apache.pekko.actor" level="INFO"/>
@@ -31,7 +31,7 @@
   <logger name="org.apache.kafka" level="WARN"/>
 
   <!-- Enable detailed logging for our custom serializer -->
-  <logger name="com.company.probe.core.pubsub.ScalaConfluentJsonSerializer" level="INFO"/>
+  <logger name="io.distia.probe.core.pubsub.ScalaConfluentJsonSerializer" level="INFO"/>
 
   <!-- Suppress verbose Schema Registry and Confluent serializer logs -->
   <logger name="io.confluent.kafka.schemaregistry" level="WARN"/>

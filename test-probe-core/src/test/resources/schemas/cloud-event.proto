@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package com.company.probe.core.pubsub.models;
+package io.distia.probe.core.pubsub.models;
 
-option java_package = "com.company.probe.core.pubsub.models";
+option java_package = "io.distia.probe.core.pubsub.models";
 option java_outer_classname = "CloudEventProtos";
 option java_multiple_files = true;
 

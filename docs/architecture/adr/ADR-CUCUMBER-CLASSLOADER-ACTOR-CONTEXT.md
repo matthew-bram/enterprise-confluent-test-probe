@@ -104,7 +104,7 @@ val classLoader: ClassLoader = this.getClass.getClassLoader
 
 ### Implementation
 
-**File:** `test-probe-core/src/main/scala/com/company/probe/core/services/cucumber/CucumberExecutor.scala`
+**File:** `test-probe-core/src/main/scala/io/distia/probe/core/services/cucumber/CucumberExecutor.scala`
 
 **Change:**
 ```scala
@@ -200,7 +200,7 @@ This issue only manifests in **integration tests** where Cucumber runs inside ac
 - **Test Files:**
   - `test-probe-core/src/test/java/com/fake/company/tests/ProduceConsumeSteps.java`
   - `test-probe-core/src/test/resources/stubs/produce-consume-event.feature`
-  - `test-probe-core/src/test/scala/com/company/probe/core/integration/IntegrationTestRunner.scala`
+  - `test-probe-core/src/test/scala/io/distia/probe/core/integration/IntegrationTestRunner.scala`
 
 ## Notes
 

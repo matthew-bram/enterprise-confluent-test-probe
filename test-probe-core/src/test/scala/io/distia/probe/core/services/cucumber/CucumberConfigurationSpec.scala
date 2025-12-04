@@ -84,7 +84,7 @@ class CucumberConfigurationSpec extends AnyWordSpec with Matchers with BlockStor
 
       val uris = config.gluePackageUris
       uris should have size 2
-      uris(0) shouldBe URI.create("classpath:com/company/probe/core/glue")
+      uris(0) shouldBe URI.create("classpath:io/distia/probe/core/glue")
       uris(1) shouldBe URI.create("classpath:com/customer/tests/steps")
     }
 

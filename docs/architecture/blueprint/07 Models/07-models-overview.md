@@ -469,9 +469,9 @@ val valueSerializer = serdesFactory.createValueSerializer[OrderEvent]
 - [04.1 Service Layer Architecture](../04%20Adapters/04.1-service-layer-architecture.md)
 
 **Implementation Files:**
-- `test-probe-common/src/main/scala/com/company/probe/common/models/`
-- `test-probe-core/src/main/scala/com/company/probe/core/models/`
-- `test-probe-core/src/main/scala/com/company/probe/core/pubsub/models/`
+- `test-probe-common/src/main/scala/io/distia/probe/common/models/`
+- `test-probe-core/src/main/scala/io/distia/probe/core/models/`
+- `test-probe-core/src/main/scala/io/distia/probe/core/pubsub/models/`
 
 ---
 

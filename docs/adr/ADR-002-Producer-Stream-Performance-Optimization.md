@@ -282,7 +282,7 @@ probe_test_execution_duration_seconds{test_type}
 ## References
 
 - Scala Ninja Review: `working/ScalaNinjaReview-KafkaStreaming-2025-10-16.md` (P0-2)
-- Actor Implementation: `test-probe-core/src/main/scala/com/company/probe/core/actors/KafkaProducerStreamingActor.scala`
+- Actor Implementation: `test-probe-core/src/main/scala/io/distia/probe/core/actors/KafkaProducerStreamingActor.scala`
 - Pekko Streams SourceQueue: https://pekko.apache.org/docs/pekko/current/stream/operators/Source/queue.html
 - Kafka Producer Best Practices: https://kafka.apache.org/documentation/#producerconfigs
 

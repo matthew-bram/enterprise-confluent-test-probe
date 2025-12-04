@@ -573,8 +573,8 @@ Could not find artifact org.scoverage:scalac-scoverage-domain_3:jar:2.2.2 in cen
 - [Scoverage Scala 3 Support](https://github.com/scoverage/scalac-scoverage-plugin)
 
 **Code References**:
-- `test-probe-core/src/main/scala/com/company/probe/core/actors/KafkaConsumerStreamingActor.scala:140`
-- `test-probe-core/src/main/scala/com/company/probe/core/actors/GuardianActor.scala:55`
+- `test-probe-core/src/main/scala/io/distia/probe/core/actors/KafkaConsumerStreamingActor.scala:140`
+- `test-probe-core/src/main/scala/io/distia/probe/core/actors/GuardianActor.scala:55`
 
 ---
 

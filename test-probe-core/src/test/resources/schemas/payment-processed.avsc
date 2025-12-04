@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "PaymentProcessedAvro",
-  "namespace": "com.company.probe.core.testmodels",
+  "namespace": "io.distia.probe.core.testmodels",
   "doc": "PaymentProcessed event schema for Avro serialization. Used for polymorphic event testing.",
   "fields": [
     {"name": "eventType", "type": "string", "default": "PaymentProcessed", "doc": "Event type discriminator"},

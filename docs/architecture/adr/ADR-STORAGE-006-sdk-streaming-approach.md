@@ -322,7 +322,7 @@ When performance testing is implemented:
 - **Azure Blob SDK:** https://docs.microsoft.com/en-us/java/api/com.azure.storage.blob.blobclient
 - **GCP Storage SDK:** https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/com.google.cloud.storage.Storage
 - **Alpakka S3 Connector:** https://doc.akka.io/docs/alpakka/current/s3.html
-- **VaultService Implementation:** `test-probe-services/src/main/scala/com/company/probe/services/vault/`
+- **VaultService Implementation:** `test-probe-services/src/main/scala/io/distia/probe/services/vault/`
 
 ---
 

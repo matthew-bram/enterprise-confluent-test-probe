@@ -1,7 +1,7 @@
 {
   "type": "record",
   "name": "CloudEvent",
-  "namespace": "com.company.probe.core.pubsub.models",
+  "namespace": "io.distia.probe.core.pubsub.models",
   "doc": "CloudEvents 1.0 specification for Kafka message keys",
   "fields": [
     {

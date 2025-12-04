@@ -222,11 +222,11 @@ if (!schema.validate(requestJson)) {
 
 ### Files
 
-**Validation Logic:** `/test-probe-interfaces/src/main/scala/com/company/probe/interfaces/rest/RestValidation.scala` (91 lines)
+**Validation Logic:** `/test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/rest/RestValidation.scala` (91 lines)
 
-**Tests:** `/test-probe-interfaces/src/test/scala/com/company/probe/interfaces/rest/RestValidationSpec.scala` (247 lines, 19 tests)
+**Tests:** `/test-probe-interfaces/src/test/scala/io/distia/probe/interfaces/rest/RestValidationSpec.scala` (247 lines, 19 tests)
 
-**Usage:** `/test-probe-interfaces/src/main/scala/com/company/probe/interfaces/rest/RestRoutes.scala` (lines 148-155)
+**Usage:** `/test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/rest/RestRoutes.scala` (lines 148-155)
 
 ### Test Coverage
 
@@ -260,7 +260,7 @@ if (!schema.validate(requestJson)) {
 
 ## References
 
-- [REST Validation Implementation](../../test-probe-interfaces/src/main/scala/com/company/probe/interfaces/rest/RestValidation.scala)
+- [REST Validation Implementation](../../test-probe-interfaces/src/main/scala/io/distia/probe/interfaces/rest/RestValidation.scala)
 - [REST Error Handling Documentation](../blueprint/03 APIs/03.1 REST API/03.1-rest-error-handling.md)
 - [Functional Error Handling with Either](https://typelevel.org/cats/datatypes/either.html)
 

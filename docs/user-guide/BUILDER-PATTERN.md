@@ -1826,7 +1826,7 @@ val ctx = ServiceDsl()
   .build()
 ```
 
-See `test-probe-core/src/test/scala/com/company/probe/core/builder/ServiceDslSpec.scala` for complete examples.
+See `test-probe-core/src/test/scala/io/distia/probe/core/builder/ServiceDslSpec.scala` for complete examples.
 
 ---
 

@@ -329,8 +329,8 @@ This pattern works for **ALL FileSystem implementations**, not just jimfs:
 - **URI Schemes**: https://docs.oracle.com/javase/8/docs/api/java/net/URI.html
 - **jimfs Documentation**: https://github.com/google/jimfs
 - **Implementation Files:**
-  - `test-probe-core/src/test/scala/com/company/probe/core/integration/world/IntegrationWorld.scala` (lines 293-306)
-  - `test-probe-core/src/main/scala/com/company/probe/core/services/cucumber/CucumberExecutor.scala` (lines 102, 117, 130)
+  - `test-probe-core/src/test/scala/io/distia/probe/core/integration/world/IntegrationWorld.scala` (lines 293-306)
+  - `test-probe-core/src/main/scala/io/distia/probe/core/services/cucumber/CucumberExecutor.scala` (lines 102, 117, 130)
 
 ## Related ADRs
 

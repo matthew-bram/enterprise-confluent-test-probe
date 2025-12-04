@@ -38,7 +38,7 @@ This test suite was **completely rebuilt** after discovering **17 critical archi
 The test architecture follows a **layered design** with **Single Responsibility Principle**:
 
 ```
-test-probe-core/src/test/scala/com/company/probe/core/
+test-probe-core/src/test/scala/io/distia/probe/core/
 ├── testutil/              # Infrastructure Layer (Testcontainers, Schema Registry)
 ├── fixtures/              # Reusable test fixtures (ActorTestingFixtures, ConfigurationFixtures)
 ├── glue/world/            # BDD World objects (ActorWorld, StreamingWorld)

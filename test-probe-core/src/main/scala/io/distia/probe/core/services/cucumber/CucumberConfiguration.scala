@@ -74,7 +74,7 @@ case class CucumberConfiguration(
    *
    * Converts glue package names to classpath URIs for Cucumber Runtime.builder().
    *
-   * Example: "io.distia.probe.core.glue" → "classpath:com/company/probe/core/glue"
+   * Example: "io.distia.probe.core.glue" → "classpath:io/distia/probe/core/glue"
    *
    * @return Sequence of glue package URIs
    */

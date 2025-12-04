@@ -1,0 +1,296 @@
+# =============================================================================
+# Block Storage Directive - Reference Configuration
+# =============================================================================
+# This file documents the structure for cloud deployments (AWS S3, Azure Blob,
+# Google Cloud Storage). For local development, block storage uses JIMFS
+# (in-memory filesystem), so this file is NOT actively used.
+#
+# Purpose:
+#   In production, Test-Probe downloads test artifacts from cloud storage and
+#   uploads test evidence (reports, logs) after execution. This file tells
+#   BlockStorageService where to find artifacts and where to store evidence.
+#
+# Local Development Behavior:
+#   - Block storage provider = "local" (configured in application.conf)
+#   - Uses JIMFS (Google's in-memory filesystem) for all I/O
+#   - Feature files loaded directly from src/test/resources/features/
+#   - Evidence files written to target/test-evidence/ (for debugging)
+#   - This file is IGNORED in local mode
+#
+# Production Deployment Behavior:
+#   - Block storage provider = "aws", "azure", or "gcp"
+#   - Downloads this file from cloud storage (e.g., s3://bucket/config/block-storage-directive.yaml)
+#   - Uses settings below to download artifacts and upload evidence
+#   - All I/O goes through JIMFS (downloaded to memory, uploaded from memory)
+#
+# Why JIMFS?
+#   - Fast: In-memory filesystem (no disk I/O)
+#   - Isolated: Each test execution gets its own JIMFS instance
+#   - Consistent: Same filesystem API for local and production
+#   - Clean: Automatically garbage collected after test completes
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# JIMFS Locations (In-Memory Filesystem Paths)
+# -----------------------------------------------------------------------------
+# These paths are JIMFS virtual paths (not OS filesystem paths).
+# JIMFS creates a virtual filesystem in memory that looks like a real filesystem.
+
+# Path where feature files are loaded in JIMFS
+# BlockStorageService downloads .feature files from cloud storage to this path
+# Example JIMFS structure:
+#   /quickstart/features/
+#     ├── orders.feature
+#     ├── inventory.feature
+#     └── payments.feature
+#
+# CucumberExecutionActor reads feature files from this path
+jimfsLocation: "/quickstart/features/"
+
+# Path where test evidence is written in JIMFS
+# After test execution, CucumberExecutionActor writes:
+#   - Cucumber JSON report (results.json)
+#   - Cucumber HTML report (report.html)
+#   - Test logs (execution.log)
+#
+# BlockStorageService uploads these files to cloud storage
+# Example JIMFS structure:
+#   /quickstart/evidence/
+#     ├── test-run-uuid-123/
+#     │   ├── cucumber-report.json
+#     │   ├── cucumber-report.html
+#     │   └── execution.log
+evidenceDir: "/quickstart/evidence/"
+
+# -----------------------------------------------------------------------------
+# Cloud Storage Configuration
+# -----------------------------------------------------------------------------
+
+# Cloud storage bucket name
+# This is the S3 bucket, Azure container, or GCS bucket where artifacts
+# and evidence are stored.
+#
+# Examples:
+#   - AWS S3: "company-test-probe" (bucket name)
+#   - Azure Blob: "testprobe" (container name)
+#   - GCP: "company-test-probe" (bucket name)
+#
+# Bucket structure (recommended):
+#   s3://company-test-probe/
+#     ├── config/
+#     │   ├── block-storage-directive.yaml  # This file
+#     │   ├── topic-directive.yaml          # Topic configurations
+#     │   └── rosetta/
+#     │       └── vault-mapping.yaml        # Vault credential mapping
+#     ├── features/
+#     │   ├── team-a/
+#     │   │   ├── orders.feature
+#     │   │   └── inventory.feature
+#     │   └── team-b/
+#     │       └── payments.feature
+#     └── evidence/
+#         ├── 2025-12-01/
+#         │   ├── test-run-uuid-123/
+#         │   │   ├── cucumber-report.json
+#         │   │   └── execution.log
+#
+# For local development, set to "local-quickstart" (informational only)
+bucket: "local-quickstart"
+
+# -----------------------------------------------------------------------------
+# Cucumber Configuration
+# -----------------------------------------------------------------------------
+
+# User-provided Cucumber glue packages
+# Glue packages contain step definition classes (@Given, @When, @Then).
+#
+# Test-Probe automatically includes the framework glue package:
+#   - "io.distia.probe.core.glue" (built-in step definitions)
+#
+# Add your custom glue packages here:
+# Example:
+#   userGluePackages:
+#     - "com.example.quickstart.steps"        # Your step definitions
+#     - "com.example.quickstart.hooks"        # Your Before/After hooks
+#     - "com.example.quickstart.transformers" # Your parameter transformers
+#
+# How It Works:
+#   1. CucumberConfiguration.Builder merges framework glue + user glue
+#   2. Cucumber scans all packages for @Given, @When, @Then annotations
+#   3. Cucumber registers step definitions for use in .feature files
+#
+# Common Package Naming Conventions:
+#   - steps: Step definition classes
+#   - hooks: Before/After hooks (setup/teardown)
+#   - transformers: Custom parameter types (DataTableType, ParameterType)
+#   - support: Utility classes, World objects, configuration
+userGluePackages:
+  - "com.example.quickstart.steps"
+
+# Cucumber tags for filtering scenarios
+# Tags allow selective test execution (run only @smoke tests, skip @wip tests).
+#
+# Tag Syntax:
+#   - "tag1 and tag2"     : Must have both tags
+#   - "tag1 or tag2"      : Must have at least one tag
+#   - "not tag1"          : Must NOT have tag1
+#   - "(tag1 or tag2) and not tag3" : Complex expressions
+#
+# Examples:
+#   tags: ["@smoke"]                  # Run only smoke tests
+#   tags: ["@regression and not @wip"] # Run regression tests, skip work-in-progress
+#   tags: ["@quickstart"]             # Run quickstart examples
+#
+# Feature File Example:
+#   @quickstart @smoke
+#   Feature: Order Processing
+#
+#     @happy-path
+#     Scenario: Create order successfully
+#       Given ...
+#
+#     @error-handling @wip
+#     Scenario: Handle invalid order
+#       Given ...
+#
+# Tag Filtering Results:
+#   tags: ["@quickstart"]     -> Both scenarios run
+#   tags: ["@smoke"]          -> Both scenarios run (feature-level tag applies)
+#   tags: ["@happy-path"]     -> Only first scenario runs
+#   tags: ["not @wip"]        -> Only first scenario runs
+tags:
+  - "@quickstart"
+
+# =============================================================================
+# PRODUCTION DEPLOYMENT EXAMPLES
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# AWS S3 Deployment
+# -----------------------------------------------------------------------------
+# Configuration in application.conf:
+#   test-probe.services.block-storage {
+#     provider = "aws"
+#     topic-directive-file-name = "topic-directive.yaml"
+#     aws {
+#       region = "us-east-1"
+#       retry-attempts = 3
+#       timeout = "30s"
+#     }
+#   }
+#
+# BlockStorageService workflow:
+#   1. Download config:
+#      s3://company-test-probe/config/block-storage-directive.yaml -> JIMFS
+#   2. Parse this file to get jimfsLocation, evidenceDir, bucket, etc.
+#   3. Download feature files:
+#      s3://company-test-probe/features/*.feature -> JIMFS /quickstart/features/
+#   4. Execute Cucumber tests (read from JIMFS)
+#   5. Upload evidence:
+#      JIMFS /quickstart/evidence/ -> s3://company-test-probe/evidence/2025-12-01/test-run-uuid/
+#
+# IAM Permissions Required:
+#   {
+#     "Effect": "Allow",
+#     "Action": [
+#       "s3:GetObject",     # Download config, features
+#       "s3:PutObject",     # Upload evidence
+#       "s3:ListBucket"     # List feature files
+#     ],
+#     "Resource": [
+#       "arn:aws:s3:::company-test-probe",
+#       "arn:aws:s3:::company-test-probe/*"
+#     ]
+#   }
+
+# -----------------------------------------------------------------------------
+# Azure Blob Storage Deployment
+# -----------------------------------------------------------------------------
+# Configuration in application.conf:
+#   test-probe.services.block-storage {
+#     provider = "azure"
+#     topic-directive-file-name = "topic-directive.yaml"
+#     azure {
+#       storage-account-name = "companytestprobe"
+#       storage-account-key = "${AZURE_STORAGE_KEY}"  # From env var
+#       timeout = "30s"
+#       retry-attempts = 3
+#     }
+#   }
+#
+# BlockStorageService workflow:
+#   1. Download config:
+#      https://companytestprobe.blob.core.windows.net/testprobe/config/block-storage-directive.yaml
+#   2. Download features:
+#      https://companytestprobe.blob.core.windows.net/testprobe/features/*.feature
+#   3. Execute tests
+#   4. Upload evidence:
+#      https://companytestprobe.blob.core.windows.net/testprobe/evidence/...
+#
+# Azure RBAC Permissions Required:
+#   - Storage Blob Data Reader (download config, features)
+#   - Storage Blob Data Contributor (upload evidence)
+
+# -----------------------------------------------------------------------------
+# Google Cloud Storage Deployment
+# -----------------------------------------------------------------------------
+# Configuration in application.conf:
+#   test-probe.services.block-storage {
+#     provider = "gcp"
+#     topic-directive-file-name = "topic-directive.yaml"
+#     gcp {
+#       project-id = "company-test-probe"
+#       service-account-key = "/path/to/service-account-key.json"
+#       timeout = "30s"
+#       retry-attempts = 3
+#     }
+#   }
+#
+# BlockStorageService workflow:
+#   1. Download config:
+#      gs://company-test-probe/config/block-storage-directive.yaml
+#   2. Download features:
+#      gs://company-test-probe/features/*.feature
+#   3. Execute tests
+#   4. Upload evidence:
+#      gs://company-test-probe/evidence/...
+#
+# GCP IAM Permissions Required:
+#   - Storage Object Viewer (download config, features)
+#   - Storage Object Creator (upload evidence)
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Q: Where are feature files stored in local development?
+# A: src/test/resources/features/ (not JIMFS, loaded directly from filesystem)
+
+# Q: Where is test evidence stored in local development?
+# A: target/test-evidence/ (for debugging, optional)
+
+# Q: How do I test cloud storage integration locally?
+# A: Use LocalStack (AWS), Azurite (Azure), or fake-gcs-server (GCP) in Docker
+
+# Q: What happens if cloud storage download fails?
+# A: BlockStorageActor sends BlockStorageException to TestExecutionActor
+#    TestExecutionActor transitions to ExceptionState and fails the test
+
+# Q: Can I use multiple buckets for different teams?
+# A: Yes, set bucket name in test submission request (overrides this default)
+
+# Q: How do I organize feature files in cloud storage?
+# A: Use folder structure: features/team-name/feature-name.feature
+#    BlockStorageService downloads all files from features/ folder recursively
+
+# Q: What file formats are supported for feature files?
+# A: Only .feature files (Gherkin syntax)
+#    Other files (.md, .txt, .json) are ignored during download
+
+# Q: How large can feature files be?
+# A: Recommended: < 1MB per .feature file
+#    JIMFS limit: Configurable (default 100MB total per test execution)
+
+# Q: What happens to JIMFS after test completes?
+# A: Garbage collected automatically (no manual cleanup needed)
+#    Evidence is uploaded to cloud storage before JIMFS is destroyed

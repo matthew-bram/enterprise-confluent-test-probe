@@ -1,0 +1,35 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProductEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "eventType": {
+      "type": "string"
+    },
+    "eventVersion": {
+      "type": "string"
+    },
+    "eventTestId": {
+      "type": "string"
+    },
+    "productId": {
+      "type": "string"
+    },
+    "productName": {
+      "type": "string"
+    },
+    "price": {
+      "type": "number",
+      "format": "double"
+    },
+    "category": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "integer",
+      "format": "int64"
+    }
+  },
+  "required": ["eventType", "eventVersion", "eventTestId", "productId", "productName", "price", "category", "timestamp"]
+}

@@ -1,0 +1,150 @@
+```mermaid
+sequenceDiagram
+    participant TEA as TestExecutionActor
+    participant VA as VaultActor
+    participant VS as AzureVaultService
+    participant RBB as RequestBodyBuilder
+    participant Vault as Azure Vault<br/>(Function App)
+    participant VCM as VaultCredentialsMapper
+    participant RM as RosettaMapper
+    participant JCB as JaasConfigBuilder
+    participant BSS as BlockStorageService
+    participant Config as application.conf
+
+    %% Context Setup
+    Note over TEA,Config: Context: TopicDirective already loaded from block storage
+
+    TEA->>BSS: LoadFromBlockStorage
+    BSS-->>TEA: TopicDirective<br/>(topic, role, clientPrincipal, metadata Map)
+    Note over TEA: metadata populated from<br/>test-metadata.yaml in S3
+
+    %% Initialization Phase
+    Note over VA,Config: Phase 1: RosettaConfig Loading (Builder Lifecycle)
+
+    VS->>Config: Load rosetta-mapping-path
+    Config-->>VS: "classpath:rosetta/azure-vault-mapping.yaml"
+
+    VS->>VS: Parse RosettaConfig<br/>(request-template + response mappings)
+    Note over VS: RosettaConfig contains:<br/>1. request-template (for building request body)<br/>2. mappings (for parsing response)
+
+    %% Request Building Phase (NEW)
+    Note over VA,Vault: Phase 2: REQUEST BUILDING (TopicDirective → Vault API Call)
+
+    TEA->>VA: Initialize(directive)
+    VA->>VS: fetchSecurityDirectives(directive)
+    Note over VS: directive contains List[TopicDirective]
+
+    loop For each TopicDirective
+        VS->>RBB: build(topicDirective, rosettaConfig, appConfig)
+
+        Note over RBB: RequestBodyBuilder substitutes variables:<br/>1. Config paths: {{$^request-params.x}}<br/>2. Metadata keys: {{'key'}}<br/>3. Directive fields: {{fieldName}}
+
+        alt Variable: Config Path Pattern
+            RBB->>Config: resolve("{{$^request-params.vault-requests.oauth-id}}")
+            Config-->>RBB: "AZURE-APP-123"
+            RBB->>RBB: Validate: MUST start with request-params.*
+            Note over RBB: Security: Prevents access to<br/>sensitive config outside namespace
+        end
+
+        alt Variable: Metadata Key Pattern
+            RBB->>RBB: resolve("{{'blood-type'}}" from TopicDirective.metadata)
+            Note over RBB: metadata Map populated<br/>from block storage YAML
+            RBB->>RBB: Extract value: "O-negative"
+        end
+
+        alt Variable: Directive Field Pattern
+            RBB->>RBB: resolve("{{topic}}" from TopicDirective)
+            RBB->>RBB: Extract value: "orders.events"
+        end
+
+        RBB-->>VS: Right(requestBodyJson)
+        Note over RBB: Fully substituted JSON:<br/>{<br/>  "oauth-id": "AZURE-APP-123",<br/>  "blood-type": "O-negative",<br/>  "topic": "orders.events"<br/>}
+
+        %% Vault API Call
+        VS->>Vault: POST /api/GetKafkaCredentials<br/>Headers: x-functions-key, Content-Type<br/>Body: requestBodyJson
+
+        alt Success Response
+            Vault-->>VS: 200 OK<br/>Response Body: vault JSON
+        else Authentication Failure
+            Vault-->>VS: 401 Unauthorized
+            VS-->>VA: Future.failed(VaultAuthException)
+        else Rate Limit
+            Vault-->>VS: 429 Too Many Requests
+            VS->>VS: Retry with exponential backoff<br/>(max 3 retries)
+        else Service Unavailable
+            Vault-->>VS: 503 Service Unavailable
+            VS->>VS: Retry with exponential backoff
+        end
+    end
+
+    %% Response Mapping Phase (EXISTING)
+    Note over VS,JCB: Phase 3: RESPONSE MAPPING (Vault JSON → SecurityDirective)
+
+    VS->>VCM: mapToVaultCredentials(vaultJson, rosettaConfig)
+
+    loop For each field mapping in rosettaConfig
+        VCM->>RM: extract(json, "$.credentials.clientId")
+        RM->>RM: Navigate JSONPath<br/>(supports 6+ nesting levels)
+        RM-->>VCM: Json("kafka-producer-123")
+
+        alt Has transformations
+            VCM->>RM: Apply transformations<br/>(base64Decode, toUpper, etc.)
+            RM->>RM: Chain transformations
+            RM-->>VCM: Transformed value
+        end
+    end
+
+    alt All required fields mapped
+        VCM-->>VS: Right(VaultCredentials)<br/>(topic, role, clientId, clientSecret)
+    else Missing required fields
+        VCM-->>VS: Left(NonEmptyList[String])<br/>("Missing field: clientId")
+        VS-->>VA: Future.failed(VaultMappingException)
+    end
+
+    %% JAAS Construction
+    Note over VS,Config: Phase 4: JAAS Config Construction
+
+    VS->>Config: Load OAuth configuration
+    Config-->>VS: oauth.token-endpoint<br/>oauth.client-scope
+
+    VS->>JCB: build(clientId, clientSecret, tokenEndpoint, scope)
+    JCB->>JCB: Escape special chars<br/>(", \, newlines)
+    JCB-->>VS: jaasConfig string
+
+    VS->>VS: Create KafkaSecurityDirective<br/>(topic, role, clientPrincipal, jaasConfig)
+    VS-->>VA: List[KafkaSecurityDirective]
+
+    %% Actor Communication
+    VA->>TEA: SecurityFetched(testId, directives)
+    VA->>TEA: ChildGoodToGo(testId, self)
+
+    Note over TEA: VaultActor ready<br/>FSM transitions: Loading → Loaded
+
+    %% Error Flows
+    Note over VS,RBB: Error Flow: Invalid Config Path
+
+    VS->>RBB: build(topicDirective, rosettaConfig, appConfig)
+    RBB->>Config: resolve("{{$^sensitive.password}}")
+    RBB->>RBB: Validate: Does NOT start with request-params.*
+    RBB-->>VS: Left(VaultMappingException<br/>"Invalid config path: 'sensitive.password'<br/>Must start with 'request-params.' namespace")
+    VS-->>VA: Future.failed(VaultMappingException)
+
+    Note over VA: Exception propagates to<br/>TestExecutionActor → Exception state
+
+    Note over VS,VCM: Error Flow: Missing Metadata Key
+
+    VS->>RBB: build(topicDirective, rosettaConfig, appConfig)
+    RBB->>RBB: resolve("{{'missing-key'}}" from metadata
+    RBB->>RBB: Key not found in TopicDirective.metadata
+    RBB-->>VS: Left(VaultMappingException<br/>"Metadata key 'missing-key' not found.<br/>Available keys: [blood-type, test-run-id]")
+    VS-->>VA: Future.failed(VaultMappingException)
+
+    Note over VS,RM: Error Flow: JSONPath Not Found
+
+    VS->>VCM: mapToVaultCredentials(vaultJson, rosettaConfig)
+    VCM->>RM: extract(json, "$.invalid.path[99]")
+    RM->>RM: Navigate path<br/>(array index out of bounds)
+    RM-->>VCM: None (path not found)
+    VCM-->>VS: Left("Field 'clientId' not found at path")
+    VS-->>VA: Future.failed(VaultMappingException)
+```

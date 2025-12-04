@@ -1,0 +1,501 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.distia.probe</groupId>
+        <artifactId>test-probe-parent</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>test-probe-core</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Test Probe - Core</name>
+    <description>Core actor system, FSM, and business logic for Test Probe</description>
+
+    <dependencies>
+        <!-- ========================================== -->
+        <!-- Internal Module Dependencies              -->
+        <!-- ========================================== -->
+
+        <dependency>
+            <groupId>io.distia.probe</groupId>
+            <artifactId>test-probe-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- Scala Standard Library                    -->
+        <!-- ========================================== -->
+
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala3-library_3</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- Apache Pekko Actor System                 -->
+        <!-- ========================================== -->
+
+        <!-- Pekko Actor Typed -->
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-actor-typed_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <!-- Pekko Stream -->
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-stream_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <!-- Pekko SLF4J Logging -->
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-slf4j_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <!-- Pekko Cluster (for future horizontal scaling) -->
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-cluster-typed_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- Apache Pekko HTTP                         -->
+        <!-- ========================================== -->
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-http_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-http-spray-json_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- Kafka & Confluent                         -->
+        <!-- ========================================== -->
+
+        <!-- Pekko Connectors Kafka (Reactive Kafka Streams) -->
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-connectors-kafka_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <!-- Kafka Clients -->
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+        </dependency>
+
+        <!-- Confluent Kafka Schema Registry Dependencies -->
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-avro-serializer</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-protobuf-serializer</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-json-schema-serializer</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-schema-registry-client</artifactId>
+        </dependency>
+
+        <!-- Bean Validation API (required by Confluent's JSON Schema generator) -->
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+            <version>2.0.1.Final</version>
+        </dependency>
+
+
+        <!-- ========================================== -->
+        <!-- Cloud Provider SDKs                       -->
+        <!-- ========================================== -->
+
+        <!-- AWS SDK S3 -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- JSON/YAML/Data Processing                 -->
+        <!-- ========================================== -->
+
+        <!-- Circe (Scala JSON library) -->
+        <dependency>
+            <groupId>io.circe</groupId>
+            <artifactId>circe-core_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.circe</groupId>
+            <artifactId>circe-generic_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.circe</groupId>
+            <artifactId>circe-parser_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <!-- Jackson (for Schema Registry compatibility) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-jsonSchema</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-modules-java8</artifactId>
+            <type>pom</type>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-cbor</artifactId>
+        </dependency>
+
+
+        <!-- ========================================== -->
+        <!-- Configuration                             -->
+        <!-- ========================================== -->
+
+        <!-- Typesafe Config -->
+        <dependency>
+            <groupId>com.typesafe</groupId>
+            <artifactId>config</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- Utilities                                 -->
+        <!-- ========================================== -->
+
+        <!-- JimFS (in-memory filesystem) -->
+        <dependency>
+            <groupId>com.google.jimfs</groupId>
+            <artifactId>jimfs</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- BDD/Testing Frameworks                    -->
+        <!-- ========================================== -->
+
+        <!-- Cucumber BDD Framework -->
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-scala_${scala.binary.version}</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-java</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- Logging & Observability                   -->
+        <!-- ========================================== -->
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+
+        <!-- OpenTelemetry -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+        </dependency>
+
+        <!-- ========================================== -->
+        <!-- Test Dependencies                         -->
+        <!-- ========================================== -->
+
+        <!-- ScalaTest -->
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.binary.version}</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Pekko Test Kits -->
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-actor-testkit-typed_${scala.binary.version}</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-stream-testkit_${scala.binary.version}</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.pekko</groupId>
+            <artifactId>pekko-http-testkit_${scala.binary.version}</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Testcontainers -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Apache Commons Lang3 (required by Testcontainers 1.19+) -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- LocalStack (S3 testing) -->
+        <dependency>
+            <groupId>cloud.localstack</groupId>
+            <artifactId>localstack-utils</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Cucumber Test Dependencies -->
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.cucumber</groupId>
+            <artifactId>cucumber-picocontainer</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <sourceDirectory>src/main/scala</sourceDirectory>
+        <testSourceDirectory>src/test/scala</testSourceDirectory>
+
+        <plugins>
+            <!-- Build Helper Plugin: Add Java main and test sources -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <!-- Add Java main sources -->
+                    <execution>
+                        <id>add-java-main-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/main/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                    <!-- Add Java test sources -->
+                    <execution>
+                        <id>add-java-test-source</id>
+                        <phase>generate-test-sources</phase>
+                        <goals>
+                            <goal>add-test-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/test/java</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Maven Compiler Plugin: Compile Java sources -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>11</source>
+                    <target>11</target>
+                </configuration>
+            </plugin>
+
+            <!-- Scala Maven Plugin: Compile Scala BEFORE Java -->
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <configuration>
+                    <args>
+                        <!-- Suppress compiler warnings -->
+                        <arg>-Wconf:any:s</arg>
+                    </args>
+                </configuration>
+                <executions>
+                    <!-- Compile Scala main sources in process-sources phase (before compile phase) -->
+                    <execution>
+                        <id>scala-compile-main</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <!-- Compile Scala test sources in process-test-sources phase (before test-compile phase) -->
+                    <execution>
+                        <id>scala-compile-test</id>
+                        <phase>process-test-sources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- ScalaTest Maven Plugin -->
+            <plugin>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest-maven-plugin</artifactId>
+                <configuration>
+                    <skipTests>${skipUnitTests}</skipTests>
+                    <parallel>true</parallel>
+                    <threadCount>4</threadCount>
+                </configuration>
+            </plugin>
+
+            <!-- Enable Surefire for Cucumber tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skipTests>${skipComponentTests}</skipTests>
+                    <includes>
+                        <include>**/*TestRunner.class</include>
+                        <include>**/*Runner.class</include>
+                    </includes>
+                    <!-- JVM Memory Settings for Parallel Execution -->
+                    <argLine>-Xmx2G -XX:+UseG1GC -XX:MaxGCPauseMillis=200</argLine>
+                    <!-- Cucumber Parallel Execution Properties -->
+                    <systemPropertyVariables>
+                        <cucumber.execution.parallel.enabled>${cucumber.parallel.enabled}</cucumber.execution.parallel.enabled>
+                        <cucumber.execution.parallel.config.strategy>fixed</cucumber.execution.parallel.config.strategy>
+                        <cucumber.execution.parallel.config.fixed.parallelism>${cucumber.parallel.threads}</cucumber.execution.parallel.config.fixed.parallelism>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+            <!-- Scoverage Plugin -->
+            <plugin>
+                <groupId>org.scoverage</groupId>
+                <artifactId>scoverage-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- ========================================== -->
+    <!-- Profiles for Test Execution               -->
+    <!-- ========================================== -->
+
+    <profiles>
+        <!-- Integration Tests Only Profile -->
+        <profile>
+            <id>integration-only</id>
+            <properties>
+                <skipUnitTests>true</skipUnitTests>
+                <skipComponentTests>true</skipComponentTests>
+                <skipIntegrationTests>false</skipIntegrationTests>
+            </properties>
+            <build>
+                <plugins>
+                    <!-- Disable ScalaTest (unit tests) -->
+                    <plugin>
+                        <groupId>org.scalatest</groupId>
+                        <artifactId>scalatest-maven-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Enable Surefire for Integration Tests ONLY -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>false</skipTests>
+                            <includes>
+                                <include>**/IntegrationTestRunner.class</include>
+                            </includes>
+                            <excludes>
+                                <exclude>**/*Spec.class</exclude>
+                                <exclude>**/ComponentTestRunner.class</exclude>
+                            </excludes>
+                            <!-- JVM Memory Settings -->
+                            <argLine>-Xmx4G -XX:+UseG1GC -XX:MaxGCPauseMillis=200</argLine>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>

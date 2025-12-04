@@ -1,0 +1,32 @@
+# Example Rosetta Config: MF Team (Complex Nested Vault)
+# Demonstrates all three variable types
+
+request-template:
+  auth:
+    credentials:
+      # Direct TopicDirective field (no quotes, no prefix)
+      clientPrincipal: "{{clientPrincipal}}"
+
+      # Static config value (with $^ prefix)
+      client-application-id: "{{$^request-params.vault-requests.mf-team.client-app-id}}"
+
+    resource:
+      # Direct TopicDirective fields
+      topic: "{{topic}}"
+      role: "{{role}}"
+
+      # Dynamic metadata from TopicDirective.metadata Map (single quotes)
+      blood-type: "{{'blood-type'}}"
+
+      # Another static config value
+      organization-id: "{{$^request-params.vault-requests.mf-team.org-id}}"
+
+# Response mapping - how to extract credentials from vault response
+mappings:
+  - targetField: clientSecret
+    sourcePath: $.auth.credentials.secret
+    transformations:
+      - type: base64Decode
+
+  - targetField: clientId
+    sourcePath: $.auth.credentials.client_id

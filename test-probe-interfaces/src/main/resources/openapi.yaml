@@ -1,0 +1,639 @@
+openapi: 3.0.3
+info:
+  title: Test Probe REST API
+  description: |
+    Event-driven architecture (EDA) testing framework REST API for Kafka-based systems.
+
+    This API enables teams to write BDD-style tests for Kafka event systems by providing
+    endpoints to initialize, start, monitor, and cancel test executions.
+
+    ## Architecture
+
+    - Built on Apache Pekko HTTP 1.1.0
+    - Actor-based test execution (Pekko Typed Actors)
+    - Circuit breaker pattern for fail-fast behavior
+    - Graceful shutdown with coordinated termination
+
+    ## Error Handling
+
+    All errors return RFC 7807-inspired error responses with:
+    - `error`: Machine-readable error code
+    - `message`: Human-readable description
+    - `details`: Optional structured error details
+    - `retryAfter`: Optional retry delay for 503 responses
+    - `timestamp`: Epoch milliseconds when error occurred
+
+    ## Timeout Hierarchy
+
+    - Ask timeout: 25 seconds (actor communication)
+    - HTTP timeout: 30 seconds (client request)
+    - Circuit breaker: 5 failures → open (fail-fast)
+
+  version: 0.0.1-SNAPSHOT
+  contact:
+    name: Test Probe Team
+    email: test-probe@company.com
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://test-probe:8080
+    description: Docker/Kubernetes service
+
+tags:
+  - name: Health
+    description: System health and readiness checks
+  - name: Test Lifecycle
+    description: Test initialization, execution, and cancellation
+  - name: Status
+    description: Test and queue status queries
+
+paths:
+  /api/v1/health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: |
+        Verifies actor system health by testing ask pattern to QueueActor.
+
+        - **Success** (200): Actor system is healthy and responding
+        - **Failure** (503): Actor system unavailable, timeout, or error
+
+        This endpoint ignores queue status details and only checks if the actor responds.
+      operationId: getHealth
+      responses:
+        '200':
+          description: Actor system is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                healthy:
+                  value:
+                    status: healthy
+                    actorSystem: running
+                    timestamp: 1634567890123
+        '503':
+          description: Actor system is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              examples:
+                timeout:
+                  value:
+                    status: unhealthy
+                    actorSystem: timeout
+                    error: Actor system did not respond in time
+                    timestamp: 1634567890123
+                unavailable:
+                  value:
+                    status: unhealthy
+                    actorSystem: unavailable
+                    error: Circuit breaker open - too many failures
+                    timestamp: 1634567890123
+
+  /api/v1/test/initialize:
+    post:
+      tags:
+        - Test Lifecycle
+      summary: Initialize new test
+      description: |
+        Creates a new test execution context and returns a unique testId.
+
+        The testId is used for all subsequent operations (start, status, cancel).
+      operationId: initializeTest
+      responses:
+        '201':
+          description: Test initialized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitializeTestResponse'
+              examples:
+                success:
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+        '503':
+          description: Service unavailable (circuit breaker open)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                circuitBreakerOpen:
+                  value:
+                    error: service_unavailable
+                    message: Service temporarily unavailable
+                    details: Circuit breaker open - too many failures
+                    retryAfter: 30s
+                    timestamp: 1634567890123
+        '504':
+          description: Actor timeout (no response within 25 seconds)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                timeout:
+                  value:
+                    error: actor_timeout
+                    message: Actor system did not respond in time
+                    timestamp: 1634567890123
+
+  /api/v1/test/start:
+    post:
+      tags:
+        - Test Lifecycle
+      summary: Start test execution
+      description: |
+        Starts test execution for a previously initialized test.
+
+        Requires:
+        - Valid testId from /test/initialize
+        - Valid S3 bucket path (s3://bucket/path)
+        - Optional test type override
+
+        Validation:
+        - block-storage-path must start with s3://
+        - test-type cannot be empty string (omit or provide value)
+      operationId: startTest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartTestRequest'
+            examples:
+              withTestType:
+                value:
+                  test-id: 550e8400-e29b-41d4-a716-446655440000
+                  block-storage-path: s3://test-bucket/tests/my-test
+                  test-type: integration
+              withoutTestType:
+                value:
+                  test-id: 550e8400-e29b-41d4-a716-446655440000
+                  block-storage-path: s3://test-bucket/tests/my-test
+      responses:
+        '202':
+          description: Test start request accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartTestResponse'
+              examples:
+                accepted:
+                  value:
+                    accepted: true
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    test-type: integration
+                rejected:
+                  value:
+                    accepted: false
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    message: Test already running
+        '400':
+          description: Invalid request (validation failed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emptyPath:
+                  value:
+                    error: validation_error
+                    message: Request validation failed
+                    details: block-storage-path cannot be empty
+                    timestamp: 1634567890123
+                invalidS3Path:
+                  value:
+                    error: validation_error
+                    message: Request validation failed
+                    details: block-storage-path must be a valid S3 path (s3://bucket/...)
+                    timestamp: 1634567890123
+                emptyTestType:
+                  value:
+                    error: validation_error
+                    message: Request validation failed
+                    details: test-type cannot be empty string (omit field or provide valid value)
+                    timestamp: 1634567890123
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Actor timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/test/{testId}/status:
+    get:
+      tags:
+        - Status
+      summary: Get test status
+      description: |
+        Retrieves current status of a test execution.
+
+        Returns:
+        - Test state (InProgress, Completed, Failed, etc.)
+        - Current phase
+        - Progress percentage
+        - Execution results (if completed/failed)
+      operationId: getTestStatus
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          description: Unique test identifier (UUID)
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Test status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestStatusResponse'
+              examples:
+                inProgress:
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    state: InProgress
+                    current-phase: Executing
+                    progress-percent: 45
+                completed:
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    state: Completed
+                    current-phase: Completed
+                    progress-percent: 100
+                    result: All tests passed
+                failed:
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    state: Failed
+                    current-phase: Exception
+                    progress-percent: 75
+                    error: Test execution failed - timeout waiting for events
+        '504':
+          description: Actor timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/queue/status:
+    get:
+      tags:
+        - Status
+      summary: Get queue status
+      description: |
+        Retrieves queue status, optionally filtered by testId.
+
+        Without testId: Returns overall queue statistics
+        With testId: Returns status for specific test in queue
+      operationId: getQueueStatus
+      parameters:
+        - name: testId
+          in: query
+          required: false
+          description: Optional test ID to filter queue status
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Queue status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatusResponse'
+              examples:
+                overall:
+                  value:
+                    queue-size: 5
+                    tests-in-queue:
+                      - 550e8400-e29b-41d4-a716-446655440000
+                      - 660e8400-e29b-41d4-a716-446655440001
+                      - 770e8400-e29b-41d4-a716-446655440002
+                empty:
+                  value:
+                    queue-size: 0
+                    tests-in-queue: []
+        '504':
+          description: Actor timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/test/{testId}:
+    delete:
+      tags:
+        - Test Lifecycle
+      summary: Cancel test execution
+      description: |
+        Cancels a running or queued test.
+
+        Behavior:
+        - Running test: Stops execution immediately
+        - Queued test: Removes from queue
+        - Completed/Failed test: No-op (returns cancelled=false)
+      operationId: cancelTest
+      parameters:
+        - name: testId
+          in: path
+          required: true
+          description: Unique test identifier (UUID)
+          schema:
+            type: string
+            format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+      responses:
+        '200':
+          description: Cancellation request processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelTestResponse'
+              examples:
+                cancelled:
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    cancelled: true
+                    message: Test cancelled successfully
+                notCancelled:
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    cancelled: false
+                    message: Test already completed
+        '504':
+          description: Actor timeout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - actorSystem
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Overall system health status
+          example: healthy
+        actorSystem:
+          type: string
+          enum: [running, timeout, unavailable, error]
+          description: Actor system state
+          example: running
+        error:
+          type: string
+          description: Error message if unhealthy
+          example: Actor system did not respond in time
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when health check occurred
+          example: 1634567890123
+
+    InitializeTestResponse:
+      type: object
+      required:
+        - test-id
+      properties:
+        test-id:
+          type: string
+          format: uuid
+          description: Unique identifier for the test execution
+          example: 550e8400-e29b-41d4-a716-446655440000
+
+    StartTestRequest:
+      type: object
+      required:
+        - test-id
+        - block-storage-path
+      properties:
+        test-id:
+          type: string
+          format: uuid
+          description: Test ID from /test/initialize
+          example: 550e8400-e29b-41d4-a716-446655440000
+        block-storage-path:
+          type: string
+          pattern: ^s3://.*
+          description: S3 bucket path containing test files
+          example: s3://test-bucket/tests/my-test
+        test-type:
+          type: string
+          description: Optional test type override
+          example: integration
+
+    StartTestResponse:
+      type: object
+      required:
+        - test-id
+        - accepted
+      properties:
+        test-id:
+          type: string
+          format: uuid
+          description: Test identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        accepted:
+          type: boolean
+          description: Whether test start was accepted
+          example: true
+        test-type:
+          type: string
+          description: Test type (if provided in request)
+          example: integration
+        message:
+          type: string
+          description: Optional message (usually for rejected requests)
+          example: Test already running
+
+    TestStatusResponse:
+      type: object
+      required:
+        - test-id
+        - state
+        - current-phase
+        - progress-percent
+      properties:
+        test-id:
+          type: string
+          format: uuid
+          description: Test identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        state:
+          type: string
+          description: Current test execution state
+          example: InProgress
+        current-phase:
+          type: string
+          description: Current execution phase
+          example: Executing
+        progress-percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Test progress percentage
+          example: 45
+        result:
+          type: string
+          description: Test result (if completed)
+          example: All tests passed
+        error:
+          type: string
+          description: Error message (if failed)
+          example: Test execution failed - timeout waiting for events
+
+    QueueStatusResponse:
+      type: object
+      required:
+        - queue-size
+        - tests-in-queue
+      properties:
+        queue-size:
+          type: integer
+          minimum: 0
+          description: Number of tests in queue
+          example: 5
+        tests-in-queue:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: List of test IDs in queue (FIFO order)
+          example:
+            - 550e8400-e29b-41d4-a716-446655440000
+            - 660e8400-e29b-41d4-a716-446655440001
+
+    CancelTestResponse:
+      type: object
+      required:
+        - test-id
+        - cancelled
+      properties:
+        test-id:
+          type: string
+          format: uuid
+          description: Test identifier
+          example: 550e8400-e29b-41d4-a716-446655440000
+        cancelled:
+          type: boolean
+          description: Whether test was cancelled
+          example: true
+        message:
+          type: string
+          description: Optional cancellation message
+          example: Test cancelled successfully
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+        - timestamp
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+          enum:
+            - bad_request
+            - validation_error
+            - not_found
+            - method_not_allowed
+            - unsupported_media_type
+            - timeout
+            - actor_timeout
+            - internal_server_error
+            - service_unavailable
+            - not_ready
+          example: validation_error
+        message:
+          type: string
+          description: Human-readable error description
+          example: Request validation failed
+        details:
+          type: string
+          description: Optional structured error details
+          example: block-storage-path cannot be empty
+        retryAfter:
+          type: string
+          description: Optional Retry-After value for 503 responses
+          example: 30s
+        timestamp:
+          type: integer
+          format: int64
+          description: Epoch milliseconds when error occurred
+          example: 1634567890123
+
+  responses:
+    BadRequest:
+      description: Invalid request (validation failed)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    MethodNotAllowed:
+      description: HTTP method not allowed for this endpoint
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    UnsupportedMediaType:
+      description: Content-Type not supported (must be application/json)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ServiceUnavailable:
+      description: Service temporarily unavailable (circuit breaker open)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    GatewayTimeout:
+      description: Actor did not respond within timeout (25 seconds)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'

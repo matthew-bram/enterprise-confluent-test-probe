@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema#",
+  "title": "CloudEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string"},
+    "source": {"type": "string"},
+    "specversion": {"type": "string"},
+    "type": {"type": "string"},
+    "time": {"type": "string"},
+    "subject": {"type": "string"},
+    "datacontenttype": {"type": "string"},
+    "correlationid": {"type": "string"},
+    "payloadversion": {"type": "string"},
+    "time_epoch_micro_source": {"type": "integer"}
+  },
+  "required": ["time_epoch_micro_source"]
+}

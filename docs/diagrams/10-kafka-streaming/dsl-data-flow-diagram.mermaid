@@ -1,0 +1,117 @@
+%%{init: {'theme': 'base', 'flowchart': {'curve': 'basis'}}}%%
+flowchart TB
+    subgraph TestExecution["Test Execution Layer"]
+        CUC[Cucumber Step Definitions]
+    end
+
+    subgraph DSLLayer["DSL Layer (ProbeScalaDsl)"]
+        direction TB
+        DSL_PROD[produceEvent / produceEventBlocking]
+        DSL_CONS[fetchConsumedEvent / fetchConsumedEventBlocking]
+        PROD_MAP[(producers<br/>ConcurrentHashMap)]
+        CONS_MAP[(consumers<br/>ConcurrentHashMap)]
+    end
+
+    subgraph SerializationLayer["Serialization Layer (SerdesFactory)"]
+        direction TB
+        SER_DISPATCH{Schema Type<br/>Dispatch}
+
+        subgraph AvroPath["Avro Serialization"]
+            direction LR
+            AVRO_SER[KafkaAvroSerializer]
+            AVRO_DES[KafkaAvroDeserializer]
+            CE_AVRO[CloudEventAvroConverter]
+        end
+
+        subgraph ProtoPath["Protobuf Serialization"]
+            direction LR
+            PROTO_SER[KafkaProtobufSerializer]
+            PROTO_DES[KafkaProtobufDeserializer]
+            CE_PROTO[CloudEventProtoConverter]
+        end
+
+        subgraph JsonPath["JSON Schema Serialization"]
+            direction LR
+            JSON_SER[ScalaConfluentJsonSerializer]
+            JSON_DES[ScalaConfluentJsonDeserializer]
+        end
+    end
+
+    subgraph ActorLayer["Actor Layer"]
+        direction TB
+        KPSA[KafkaProducerStreamingActor]
+        KCSA[KafkaConsumerStreamingActor]
+        KCSA_REG[(Event Registry<br/>mutable.Map)]
+    end
+
+    subgraph ExternalServices["External Services"]
+        direction LR
+        SR[(Schema Registry<br/>Confluent)]
+        KAFKA[(Kafka Broker)]
+    end
+
+    %% Test to DSL
+    CUC -->|"1. produceEventBlocking<br/>(testId, topic, key, value)"| DSL_PROD
+    CUC -->|"6. fetchConsumedEventBlocking<br/>(testId, topic, correlationId)"| DSL_CONS
+
+    %% DSL Registry Lookups
+    DSL_PROD -->|"2. producers.get((testId, topic))"| PROD_MAP
+    DSL_CONS -->|"7. consumers.get((testId, topic))"| CONS_MAP
+
+    %% DSL to Serialization (Produce)
+    DSL_PROD -->|"3. serialize[T]<br/>(blocking-io-dispatcher)"| SER_DISPATCH
+
+    %% Schema Type Dispatch
+    SER_DISPATCH -->|"AVRO"| AVRO_SER
+    SER_DISPATCH -->|"PROTOBUF"| PROTO_SER
+    SER_DISPATCH -->|"JSON"| JSON_SER
+
+    %% CloudEvent Key Handling
+    AVRO_SER -.->|"CloudEvent key"| CE_AVRO
+    PROTO_SER -.->|"CloudEvent key"| CE_PROTO
+
+    %% Schema Registry Lookups
+    AVRO_SER -->|"schema lookup"| SR
+    PROTO_SER -->|"schema lookup"| SR
+    JSON_SER -->|"schema lookup"| SR
+
+    %% DSL to Actor (Produce)
+    DSL_PROD -->|"4. ask(ProduceEvent<br/>keyBytes, valueBytes)"| KPSA
+
+    %% Actor to Kafka
+    KPSA -->|"5. ProducerRecord"| KAFKA
+
+    %% Consumer Flow
+    KAFKA -->|"Background: consume"| KCSA
+    KCSA -->|"Store filtered events"| KCSA_REG
+
+    %% DSL to Actor (Consume)
+    DSL_CONS -->|"8. ask(FetchConsumedEvent)"| KCSA
+    KCSA -->|"9. Lookup by correlationId"| KCSA_REG
+
+    %% DSL Deserialization
+    DSL_CONS -->|"10. deserialize[T]<br/>(blocking-io-dispatcher)"| SER_DISPATCH
+    SER_DISPATCH -->|"AVRO"| AVRO_DES
+    SER_DISPATCH -->|"PROTOBUF"| PROTO_DES
+    SER_DISPATCH -->|"JSON"| JSON_DES
+
+    AVRO_DES -.->|"CloudEvent key"| CE_AVRO
+    PROTO_DES -.->|"CloudEvent key"| CE_PROTO
+
+    %% Schema Registry Lookups (Deserialize)
+    AVRO_DES -->|"schema lookup"| SR
+    PROTO_DES -->|"schema lookup"| SR
+    JSON_DES -->|"schema lookup"| SR
+
+    %% Styling
+    classDef dslStyle fill:#ffe1f0,stroke:#d63384,stroke-width:2px
+    classDef serdesStyle fill:#fff4e1,stroke:#fd7e14,stroke-width:2px
+    classDef actorStyle fill:#e1f0ff,stroke:#0d6efd,stroke-width:2px
+    classDef externalStyle fill:#e1f5e1,stroke:#198754,stroke-width:2px
+    classDef testStyle fill:#f8f9fa,stroke:#6c757d,stroke-width:2px
+
+    class DSL_PROD,DSL_CONS,PROD_MAP,CONS_MAP dslStyle
+    class SER_DISPATCH,AVRO_SER,AVRO_DES,PROTO_SER,PROTO_DES,JSON_SER,JSON_DES,CE_AVRO,CE_PROTO serdesStyle
+    class KPSA,KCSA,KCSA_REG actorStyle
+    class SR,KAFKA externalStyle
+    class CUC testStyle

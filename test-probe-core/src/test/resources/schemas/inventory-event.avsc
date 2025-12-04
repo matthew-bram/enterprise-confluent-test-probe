@@ -1,0 +1,16 @@
+{
+  "type": "record",
+  "name": "InventoryEvent",
+  "namespace": "com.fake.company.tests",
+  "doc": "Inventory event for Avro integration testing",
+  "fields": [
+    {"name": "eventType", "type": "string", "default": "InventoryEvent"},
+    {"name": "eventVersion", "type": "string", "default": "v1"},
+    {"name": "eventTestId", "type": "string"},
+    {"name": "inventoryId", "type": "string"},
+    {"name": "productId", "type": "string"},
+    {"name": "quantity", "type": "int"},
+    {"name": "warehouse", "type": "string"},
+    {"name": "timestamp", "type": "long"}
+  ]
+}

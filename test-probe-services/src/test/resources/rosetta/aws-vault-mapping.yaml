@@ -1,0 +1,14 @@
+# Mock AWS Vault Rosetta Mapping for Integration Tests
+# This file provides a minimal valid structure for testing purposes
+
+request-template:
+  topic: "{{topic}}"
+  clientPrincipal: "{{clientPrincipal}}"
+  role: "{{role}}"
+
+mappings:
+  - targetField: clientId
+    sourcePath: "$.credentials.clientId"
+
+  - targetField: clientSecret
+    sourcePath: "$.credentials.clientSecret"

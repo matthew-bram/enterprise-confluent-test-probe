@@ -1,0 +1,174 @@
+%%{init: {'theme': 'base'}}%%
+sequenceDiagram
+    autonumber
+
+    box rgba(225, 245, 225, 0.3) Actor System Initialization
+    participant AS as ActorSystem
+    participant DSL as ProbeScalaDsl
+    participant SRF as SerdesFactory
+    participant SRC as CachedSchemaRegistryClient
+    end
+
+    box rgba(225, 240, 255, 0.3) Kafka Streaming Actors
+    participant KPA as KafkaProducerActor
+    participant KPSA as KafkaProducerStreamingActor
+    participant KCA as KafkaConsumerActor
+    participant KCSA as KafkaConsumerStreamingActor
+    end
+
+    box rgba(255, 228, 225, 0.3) Test Execution
+    participant CUC as Cucumber Step<br/>Definitions
+    end
+
+    box rgba(255, 244, 225, 0.3) External Services
+    participant SR as Schema Registry
+    participant K as Kafka Broker
+    end
+
+    %% Initialization Phase
+    rect rgb(240, 248, 255)
+        Note over AS,SRC: System Initialization Phase
+
+        AS->>DSL: registerSystem(system)
+        activate DSL
+        DSL->>DSL: Store system reference
+        DSL->>DSL: Read ask-timeout from config
+        DSL->>DSL: Read schema-registry-url from config
+        DSL->>SRC: new CachedSchemaRegistryClient(url, 100, providers)
+        activate SRC
+        Note over SRC: Providers: Avro, Protobuf, JSON
+        SRC-->>DSL: SchemaRegistryClient instance
+        deactivate SRC
+        DSL->>SRF: setClient(client, url)
+        Note over SRF: Sets volatile client + url references
+        deactivate DSL
+    end
+
+    %% Producer Registration
+    rect rgb(240, 255, 240)
+        Note over KPA,KPSA: Producer Actor Registration Phase
+
+        KPA->>KPSA: spawn(testId, topic, ...)
+        activate KPSA
+        KPSA-->>KPA: ActorRef
+        KPA->>DSL: registerProducerActor(testId, topic, actorRef)
+        activate DSL
+        DSL->>DSL: producers.put((testId, topic), actorRef)
+        Note over DSL: ConcurrentHashMap[(UUID, String), ActorRef]
+        deactivate DSL
+        deactivate KPSA
+    end
+
+    %% Consumer Registration
+    rect rgb(255, 248, 240)
+        Note over KCA,KCSA: Consumer Actor Registration Phase
+
+        KCA->>KCSA: spawn(testId, topic, ...)
+        activate KCSA
+        KCSA-->>KCA: ActorRef
+        KCA->>DSL: registerConsumerActor(testId, topic, actorRef)
+        activate DSL
+        DSL->>DSL: consumers.put((testId, topic), actorRef)
+        deactivate DSL
+        deactivate KCSA
+    end
+
+    %% Produce Event Flow
+    rect rgb(255, 240, 245)
+        Note over CUC,K: Produce Event Flow
+
+        CUC->>DSL: produceEvent[T](testId, topic, key, value, headers)
+        activate DSL
+
+        DSL->>DSL: producers.get((testId, topic))
+        alt Actor Not Found
+            DSL-->>CUC: throw ActorNotRegisteredException
+        end
+
+        Note over DSL: Serialization on blocking-io-dispatcher
+
+        DSL->>SRF: serialize[CloudEvent](key, topic, isKey=true)
+        activate SRF
+        SRF->>SR: getLatestSchemaMetadata(subject)
+        SR-->>SRF: SchemaMetadata (type: AVRO/PROTOBUF/JSON)
+        Note over SRF: Dispatch based on schema type
+        alt AVRO Schema
+            SRF->>SRF: serializeAvro() with CloudEventAvroConverter
+        else PROTOBUF Schema
+            SRF->>SRF: serializeProtobuf() with CloudEventProtoConverter
+        else JSON Schema
+            SRF->>SRF: serializeJsonSchema()
+        end
+        SRF-->>DSL: keyBytes: Array[Byte]
+        deactivate SRF
+
+        DSL->>SRF: serialize[T](value, topic, isKey=false)
+        activate SRF
+        SRF->>SR: getLatestSchemaMetadata(subject)
+        SR-->>SRF: SchemaMetadata
+        SRF-->>DSL: valueBytes: Array[Byte]
+        deactivate SRF
+
+        DSL->>KPSA: ask(ProduceEvent(keyBytes, valueBytes, headers, replyTo))
+        activate KPSA
+        KPSA->>K: ProducerRecord(topic, keyBytes, valueBytes, headers)
+        K-->>KPSA: RecordMetadata
+        KPSA-->>DSL: ProducedAck
+        deactivate KPSA
+
+        DSL-->>CUC: Future[ProducingSuccess()]
+        deactivate DSL
+    end
+
+    %% Consume Event Flow
+    rect rgb(240, 255, 250)
+        Note over CUC,K: Fetch Consumed Event Flow
+
+        CUC->>DSL: fetchConsumedEvent[T](testId, topic, correlationId)
+        activate DSL
+
+        DSL->>DSL: consumers.get((testId, topic))
+        alt Actor Not Found
+            DSL-->>CUC: throw ActorNotRegisteredException
+        end
+
+        DSL->>KCSA: ask(FetchConsumedEvent(correlationId, replyTo))
+        activate KCSA
+        Note over KCSA: Lookup in internal registry
+        KCSA-->>DSL: ConsumedAck(keyBytes, valueBytes, headers)
+        deactivate KCSA
+
+        Note over DSL: Deserialization on blocking-io-dispatcher
+
+        DSL->>SRF: deserialize[CloudEvent](keyBytes, topic, isKey=true)
+        activate SRF
+        SRF->>SR: getLatestSchemaMetadata(subject)
+        SR-->>SRF: SchemaMetadata
+        SRF-->>DSL: CloudEvent key
+        deactivate SRF
+
+        DSL->>SRF: deserialize[T](valueBytes, topic, isKey=false)
+        activate SRF
+        SRF->>SR: getLatestSchemaMetadata(subject)
+        SR-->>SRF: SchemaMetadata
+        SRF-->>DSL: T value
+        deactivate SRF
+
+        DSL-->>CUC: Future[ConsumedSuccess(key, value, headers)]
+        deactivate DSL
+    end
+
+    %% Cleanup Phase
+    rect rgb(255, 245, 245)
+        Note over DSL,KCSA: Cleanup Phase
+
+        KPA->>DSL: unRegisterProducerActor(testId, topic)
+        activate DSL
+        DSL->>DSL: producers.remove((testId, topic))
+        deactivate DSL
+
+        KCA->>DSL: unRegisterConsumerActor(testId, topic)
+        activate DSL
+        DSL->>DSL: consumers.remove((testId, topic))
+        deactivate DSL
+    end

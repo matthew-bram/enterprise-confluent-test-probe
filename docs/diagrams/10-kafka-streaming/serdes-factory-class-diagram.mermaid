@@ -1,0 +1,127 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#e1f5e1', 'secondaryColor': '#e1f0ff', 'tertiaryColor': '#fff4e1'}}}%%
+classDiagram
+    direction TB
+
+    class SerdesFactory {
+        <<singleton>>
+        -client: Option[SchemaRegistryClient]
+        -schemaRegistryUrl: Option[String]
+        +setClient(srClient: SchemaRegistryClient): Unit
+        +setClient(srClient: SchemaRegistryClient, url: String): Unit
+        +extractClient: SchemaRegistryClient
+        +extractSchemaRegistryUrl: String
+        +serialize[T](t: T, topic: String, isKey: Boolean): Array[Byte]
+        +deserialize[T](bytes: Array[Byte], topic: String, isKey: Boolean): T
+        +schemaTypeForSubject(subject: String): String
+        -serializeAvro[T](t: T, topic: String, isKey: Boolean, clazz: String): Array[Byte]
+        -deserializeAvro[T](bytes: Array[Byte], topic: String, isKey: Boolean, clazz: String): T
+        -serializeProtobuf[T](t: T, topic: String, isKey: Boolean, clazz: String): Array[Byte]
+        -deserializeProtobuf[T](bytes: Array[Byte], topic: String, isKey: Boolean, clazz: String): T
+        -serializeJsonSchema[T](t: T, topic: String, isKey: Boolean): Array[Byte]
+        -deserializeJsonSchema[T](bytes: Array[Byte], topic: String, isKey: Boolean): T
+    }
+
+    class SchemaRegistryClient {
+        <<interface>>
+        +getLatestSchemaMetadata(subject: String): SchemaMetadata
+        +register(subject: String, schema: Schema): int
+    }
+
+    class CachedSchemaRegistryClient {
+        +CachedSchemaRegistryClient(url: String, cacheSize: Int, providers: List[SchemaProvider], configs: Map)
+    }
+
+    class SchemaProvider {
+        <<interface>>
+    }
+
+    class AvroSchemaProvider
+    class ProtobufSchemaProvider
+    class JsonSchemaProvider
+
+    class KafkaAvroSerializer {
+        +configure(configs: Map, isKey: Boolean): Unit
+        +serialize(topic: String, data: SpecificRecord): Array[Byte]
+    }
+
+    class KafkaAvroDeserializer {
+        +configure(configs: Map, isKey: Boolean): Unit
+        +deserialize(topic: String, bytes: Array[Byte]): Object
+    }
+
+    class KafkaProtobufSerializer {
+        +configure(configs: Map, isKey: Boolean): Unit
+        +serialize(topic: String, data: Message): Array[Byte]
+    }
+
+    class KafkaProtobufDeserializer {
+        +configure(configs: Map, isKey: Boolean): Unit
+        +deserialize(topic: String, bytes: Array[Byte]): Message
+    }
+
+    class ScalaConfluentJsonSerializer {
+        -schemaRegistryClient: SchemaRegistryClient
+        -schemaRegistryUrl: String
+        +serialize(topic: String, t: T, isKey: Boolean): Array[Byte]
+        -configureObjectMapper(): Unit
+    }
+
+    class ScalaConfluentJsonDeserializer {
+        -schemaRegistryClient: SchemaRegistryClient
+        -schemaRegistryUrl: String
+        -des: KafkaJsonSchemaDeserializer
+        -mapper: ObjectMapper
+        +deserialize(topic: String, bytes: Array[Byte]): T
+    }
+
+    class CloudEventAvroConverter {
+        <<object>>
+        +toAvro(ce: CloudEvent): CloudEventAvro
+        +toCloudEvent(avro: CloudEventAvro): CloudEvent
+        +fromGenericRecord(record: GenericRecord): CloudEvent
+    }
+
+    class CloudEventProtoConverter {
+        <<object>>
+        +toProto(ce: CloudEvent): CloudEventProtoWrapper
+        +toCloudEvent(wrapper: CloudEventProtoWrapper): CloudEvent
+        +fromDynamicMessage(msg: DynamicMessage): CloudEvent
+    }
+
+    class CloudEvent {
+        +id: String
+        +source: String
+        +specversion: String
+        +type: String
+        +time: String
+        +subject: String
+        +datacontenttype: String
+        +correlationid: String
+        +payloadversion: String
+        +time_epoch_micro_source: Long
+    }
+
+    %% Relationships
+    SerdesFactory --> SchemaRegistryClient : uses
+    SerdesFactory --> KafkaAvroSerializer : creates
+    SerdesFactory --> KafkaAvroDeserializer : creates
+    SerdesFactory --> KafkaProtobufSerializer : creates
+    SerdesFactory --> KafkaProtobufDeserializer : creates
+    SerdesFactory --> ScalaConfluentJsonSerializer : creates
+    SerdesFactory --> ScalaConfluentJsonDeserializer : creates
+    SerdesFactory --> CloudEventAvroConverter : uses for CloudEvent keys
+    SerdesFactory --> CloudEventProtoConverter : uses for CloudEvent keys
+
+    CachedSchemaRegistryClient ..|> SchemaRegistryClient : implements
+    CachedSchemaRegistryClient --> SchemaProvider : uses
+
+    AvroSchemaProvider ..|> SchemaProvider
+    ProtobufSchemaProvider ..|> SchemaProvider
+    JsonSchemaProvider ..|> SchemaProvider
+
+    CloudEventAvroConverter --> CloudEvent : converts
+    CloudEventProtoConverter --> CloudEvent : converts
+
+    note for SerdesFactory "Schema type dispatch based on\nSchemaRegistry metadata.\nSubject format: {topic}-{className}"
+
+    note for ScalaConfluentJsonSerializer "Scala-friendly JSON wrapper\nwith DefaultScalaModule for\nScala 3.3.6 LTS support"

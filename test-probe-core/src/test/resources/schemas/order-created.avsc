@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "OrderCreatedAvro",
+  "namespace": "com.company.probe.core.testmodels",
+  "doc": "OrderCreated event schema for Avro serialization. Used for polymorphic event testing.",
+  "fields": [
+    {"name": "eventType", "type": "string", "default": "OrderCreated", "doc": "Event type discriminator"},
+    {"name": "orderId", "type": "string", "doc": "Unique order identifier"},
+    {"name": "customerId", "type": "string", "doc": "Customer identifier"},
+    {"name": "amount", "type": "double", "doc": "Order amount"},
+    {"name": "currency", "type": ["null", "string"], "default": null, "doc": "Currency code (optional)"},
+    {"name": "timestamp", "type": ["null", "long"], "default": null, "doc": "Event timestamp in epoch millis (optional)"}
+  ]
+}

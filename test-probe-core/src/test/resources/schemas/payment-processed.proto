@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package com.company.probe.core.testmodels;
+
+option java_package = "com.company.probe.core.testmodels";
+option java_outer_classname = "PaymentProcessedProtos";
+option java_multiple_files = true;
+
+// PaymentProcessed event schema for Protobuf serialization.
+// Used for polymorphic event testing with TopicRecordNameStrategy.
+message PaymentProcessedProto {
+  string event_type = 1;      // Event type discriminator (default: "PaymentProcessed")
+  string payment_id = 2;      // Unique payment identifier
+  string order_id = 3;        // Associated order identifier
+  double amount = 4;          // Payment amount
+  string currency = 5;        // Currency code (optional, empty string if not set)
+  string payment_method = 6;  // Payment method (optional, empty string if not set)
+  int64 timestamp = 7;        // Event timestamp in epoch millis (optional, 0 if not set)
+}

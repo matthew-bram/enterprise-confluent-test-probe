@@ -1,0 +1,14 @@
+# Example Rosetta Config: Hip Distributed Team (Simple Flat Vault)
+# Only requires oauth-id (which is the clientPrincipal)
+
+request-template:
+  # Simple flat structure - just one field
+  oauth-id: "{{clientPrincipal}}"
+
+# Response mapping
+mappings:
+  - targetField: clientSecret
+    sourcePath: $.secret
+
+  # clientId not required - vault only returns secret
+  # AzureVaultService will fall back to clientPrincipal for JAAS config

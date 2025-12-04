@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package com.company.probe.core.testmodels;
+
+option java_package = "com.company.probe.core.testmodels";
+option java_outer_classname = "OrderCreatedProtos";
+option java_multiple_files = true;
+
+// OrderCreated event schema for Protobuf serialization.
+// Used for polymorphic event testing with TopicRecordNameStrategy.
+message OrderCreatedProto {
+  string event_type = 1;      // Event type discriminator (default: "OrderCreated")
+  string order_id = 2;        // Unique order identifier
+  string customer_id = 3;     // Customer identifier
+  double amount = 4;          // Order amount
+  string currency = 5;        // Currency code (optional, empty string if not set)
+  int64 timestamp = 6;        // Event timestamp in epoch millis (optional, 0 if not set)
+}

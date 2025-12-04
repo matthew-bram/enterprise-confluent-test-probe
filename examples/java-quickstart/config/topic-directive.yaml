@@ -1,0 +1,274 @@
+# =============================================================================
+# Topic Directive Configuration - Test-Probe Java Quickstart
+# =============================================================================
+# This file defines Kafka topics and their serialization formats for Test-Probe.
+# Each topic requires both a PRODUCER and CONSUMER entry to enable bidirectional
+# communication (produce events in tests, consume events for verification).
+#
+# Purpose:
+#   - Define which topics Test-Probe can produce to and consume from
+#   - Specify serialization format (JSON, Avro, Protobuf) via metadata
+#   - Map event types to topics for routing
+#   - Provide OAuth client principals for Kafka ACL authorization
+#
+# File Structure:
+#   topics:               # List of topic configurations
+#     - topic:            # Kafka topic name (must match actual topic in broker)
+#       role:             # "producer" or "consumer"
+#       clientPrincipal:  # OAuth client identity (used for Kafka ACLs)
+#       eventFilters:     # Event type and version pairs
+#         - key:          # Event type name (e.g., "OrderEvent")
+#           value:        # Event version (e.g., "1.0")
+#       metadata:         # Custom key-value pairs (used by Rosetta templates)
+#         serdes-type:    # Serialization format: "json", "avro", or "protobuf"
+#         environment:    # Deployment environment (local, dev, staging, prod)
+#       bootstrapServers: # Optional: Per-topic bootstrap servers (overrides default)
+#
+# Production Considerations:
+#   - Add bootstrapServers for topics on different Kafka clusters
+#   - Use meaningful clientPrincipal values that match Kafka ACL policies
+#   - Set environment metadata to control environment-specific behavior
+#   - Ensure event type names match your CloudEvent data models
+#
+# CloudEvent Structure (What Gets Produced):
+#   {
+#     "specversion": "1.0",
+#     "id": "uuid",
+#     "source": "test-probe",
+#     "type": "OrderEvent",           # Matches eventFilters.key
+#     "datacontenttype": "application/json",
+#     "data": { ... },                # Your event payload
+#     "time": "2025-12-01T10:30:00Z"
+#   }
+#
+# Serialization Types:
+#   - JSON: CloudEvents with JSON Schema validation (best for flexibility)
+#   - Avro: SpecificRecord with Schema Registry (best for performance)
+#   - Protobuf: DynamicMessage with Schema Registry (best for polyglot systems)
+# =============================================================================
+
+topics:
+
+  # ===========================================================================
+  # JSON SERIALIZATION EXAMPLE - Order Events
+  # ===========================================================================
+  # JSON Schema serialization provides:
+  #   - Human-readable messages (easy debugging)
+  #   - Schema evolution via JSON Schema validation
+  #   - CloudEvent envelope with standard metadata
+  #   - No code generation required (use Maps/POJOs)
+  #
+  # Use Case: REST APIs, webhooks, event sourcing, audit logs
+
+  # Producer configuration for order-events-json topic
+  - topic: "order-events-json"
+    # Role: producer (Test-Probe produces events to this topic)
+    # This allows step definitions to call:
+    #   ProbeJavaDsl.produceEvent("order-events-json", orderEvent, headers);
+    role: "producer"
+
+    # OAuth client principal for Kafka ACL authorization
+    # In production Kafka with SASL/OAUTHBEARER:
+    #   - This identity is sent in the OAuth token claim
+    #   - Kafka ACLs check if "quickstart-producer" has WRITE permission on topic
+    #   - Format: "service-account-name" or "user@company.com"
+    #
+    # For local development without ACLs, this is informational only
+    clientPrincipal: "quickstart-producer"
+
+    # Event type filters (which events can be produced to this topic)
+    # Test-Probe uses this to:
+    #   - Validate that the event type matches before producing
+    #   - Route events to the correct topic based on event type
+    #   - Enforce versioning (only version 1.0 of OrderEvent allowed)
+    eventFilters:
+      # Key: Event type name (matches CloudEvent "type" field)
+      # Value: Event version (semantic versioning)
+      - key: "OrderEvent"
+        value: "1.0"
+
+    # Metadata: Custom key-value pairs (used by Rosetta vault templates)
+    # These values are injected into vault request templates when fetching
+    # OAuth credentials. See rosetta/aws-vault-mapping.yaml for examples.
+    metadata:
+      # Serialization format (CRITICAL: determines which SerDes to use)
+      # Options: "json", "avro", "protobuf"
+      # This value is read by KafkaProducerStreamingActor to select:
+      #   - JSON: CloudEventJsonSerializer
+      #   - Avro: CloudEventAvroSerializer
+      #   - Protobuf: CloudEventProtobufSerializer
+      serdes-type: "json"
+
+      # Deployment environment (used in Rosetta vault templates)
+      # Example: Vault may return different credentials per environment
+      # This is optional and can be any key-value pair your vault needs
+      environment: "local"
+
+  # Consumer configuration for order-events-json topic
+  - topic: "order-events-json"
+    # Role: consumer (Test-Probe consumes events from this topic)
+    # This allows step definitions to call:
+    #   Optional<CloudEvent> event = ProbeJavaDsl.fetchConsumedEvent("order-events-json");
+    role: "consumer"
+
+    # OAuth client principal for Kafka ACL authorization
+    # In production, this identity needs READ permission on the topic
+    clientPrincipal: "quickstart-consumer"
+
+    # Event type filters (which events to consume from this topic)
+    # Test-Probe filters consumed messages by CloudEvent "type" field
+    # Only messages with type="OrderEvent" and version="1.0" are stored
+    eventFilters:
+      - key: "OrderEvent"
+        value: "1.0"
+
+  # ===========================================================================
+  # AVRO SERIALIZATION EXAMPLE - Inventory Events
+  # ===========================================================================
+  # Avro SpecificRecord serialization provides:
+  #   - Compact binary format (50-70% smaller than JSON)
+  #   - Schema evolution (forward/backward compatibility)
+  #   - Schema Registry integration (schema versioning)
+  #   - Code generation (type-safe Java classes)
+  #
+  # Use Case: High-throughput pipelines, data lakes, analytics, CDC
+
+  # Producer configuration for inventory-events-avro topic
+  - topic: "inventory-events-avro"
+    role: "producer"
+    clientPrincipal: "quickstart-producer"
+
+    # Event type: InventoryEvent (must have corresponding .avsc schema file)
+    # Schema location: src/main/avro/InventoryEvent.avsc
+    # Generated class: com.example.quickstart.events.InventoryEvent (SpecificRecord)
+    eventFilters:
+      - key: "InventoryEvent"
+        value: "1.0"
+
+    metadata:
+      # Avro serialization with Schema Registry
+      # Producer:
+      #   1. Generates Avro schema from SpecificRecord class
+      #   2. Registers schema with Schema Registry (returns schema ID)
+      #   3. Serializes message: [magic-byte][schema-id][avro-binary-data]
+      # Consumer:
+      #   1. Reads schema ID from message
+      #   2. Fetches schema from Schema Registry (cached locally)
+      #   3. Deserializes Avro binary data using fetched schema
+      serdes-type: "avro"
+      environment: "local"
+
+  # Consumer configuration for inventory-events-avro topic
+  - topic: "inventory-events-avro"
+    role: "consumer"
+    clientPrincipal: "quickstart-consumer"
+    eventFilters:
+      - key: "InventoryEvent"
+        value: "1.0"
+
+  # ===========================================================================
+  # PROTOBUF SERIALIZATION EXAMPLE - Payment Events
+  # ===========================================================================
+  # Protobuf DynamicMessage serialization provides:
+  #   - Compact binary format (similar to Avro)
+  #   - Polyglot support (Java, Go, Python, C++, etc.)
+  #   - Schema evolution (field numbers, optional/required)
+  #   - Schema Registry integration (schema versioning)
+  #
+  # Use Case: Microservices (polyglot), gRPC integration, mobile apps
+
+  # Producer configuration for payment-events-protobuf topic
+  - topic: "payment-events-protobuf"
+    role: "producer"
+    clientPrincipal: "quickstart-producer"
+
+    # Event type: PaymentEvent (must have corresponding .proto schema file)
+    # Schema location: src/main/proto/PaymentEvent.proto
+    # Generated class: com.example.quickstart.events.PaymentEventOuterClass
+    eventFilters:
+      - key: "PaymentEvent"
+        value: "1.0"
+
+    metadata:
+      # Protobuf serialization with Schema Registry
+      # Producer:
+      #   1. Parses .proto schema file
+      #   2. Registers schema with Schema Registry (returns schema ID)
+      #   3. Serializes message: [magic-byte][schema-id][protobuf-binary-data]
+      # Consumer:
+      #   1. Reads schema ID from message
+      #   2. Fetches schema from Schema Registry (cached locally)
+      #   3. Deserializes Protobuf binary data using fetched schema
+      serdes-type: "protobuf"
+      environment: "local"
+
+  # Consumer configuration for payment-events-protobuf topic
+  - topic: "payment-events-protobuf"
+    role: "consumer"
+    clientPrincipal: "quickstart-consumer"
+    eventFilters:
+      - key: "PaymentEvent"
+        value: "1.0"
+
+# =============================================================================
+# ADVANCED CONFIGURATION - Multiple Kafka Clusters
+# =============================================================================
+# Test-Probe supports producing/consuming from topics on different Kafka clusters.
+# Use the bootstrapServers field to override the default cluster per topic.
+#
+# Example: Topic on a different cluster
+# - topic: "legacy-orders"
+#   role: "consumer"
+#   clientPrincipal: "quickstart-consumer"
+#   # Override default bootstrap servers for this topic only
+#   # Default: localhost:9092 (from application.conf)
+#   # Override: Connect to legacy cluster instead
+#   bootstrapServers: "legacy-broker1.company.com:9092,legacy-broker2.company.com:9092"
+#   eventFilters:
+#     - key: "LegacyOrderEvent"
+#       value: "1.0"
+#   metadata:
+#     serdes-type: "json"
+#
+# How It Works:
+#   1. Test-Probe reads topic-directive.yaml at startup
+#   2. For topics WITH bootstrapServers: Creates dedicated Kafka producer/consumer
+#   3. For topics WITHOUT bootstrapServers: Uses default from application.conf
+#   4. Each cluster gets its own connection pool, OAuth credentials, Schema Registry
+#
+# Validation Rules (TopicDirectiveValidator):
+#   - UNIQUENESS: Each (topic, role) pair must be unique across the file
+#   - FORMAT: bootstrapServers must be comma-separated "host:port" list
+#   - REQUIRED FIELDS: topic, role, clientPrincipal, eventFilters must be present
+#
+# Example Error:
+#   DuplicateTopicException: Topic 'order-events-json' with role 'producer' is defined multiple times
+# =============================================================================
+
+# =============================================================================
+# EVENT TYPE NAMING CONVENTIONS
+# =============================================================================
+# Event type (eventFilters.key) should match CloudEvent "type" field:
+#
+# Good Examples:
+#   - "OrderEvent"              # Clear, concise
+#   - "OrderCreated"            # Event-sourcing style (past tense)
+#   - "order.created.v1"        # Domain-driven design (namespace)
+#   - "com.company.OrderEvent"  # Fully qualified (avoids collisions)
+#
+# Bad Examples:
+#   - "ORDER_EVENT"             # Avoid all caps (hard to read)
+#   - "order event"             # No spaces (CloudEvent type is a URI)
+#   - "order"                   # Too vague (what about the order?)
+#
+# Versioning Strategy:
+#   - Use semantic versioning: "1.0", "1.1", "2.0"
+#   - Major version (1.0 -> 2.0): Breaking changes (remove fields, change types)
+#   - Minor version (1.0 -> 1.1): Backward-compatible changes (add optional fields)
+#   - Test-Probe allows multiple versions of the same event type on different topics
+#
+# Example: Migrating from v1.0 to v2.0
+#   - Keep v1.0 topic running (old producers)
+#   - Add v2.0 topic (new producers)
+#   - Consume from BOTH topics in tests (validate migration)
+# =============================================================================

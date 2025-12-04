@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "PaymentProcessedAvro",
+  "namespace": "com.company.probe.core.testmodels",
+  "doc": "PaymentProcessed event schema for Avro serialization. Used for polymorphic event testing.",
+  "fields": [
+    {"name": "eventType", "type": "string", "default": "PaymentProcessed", "doc": "Event type discriminator"},
+    {"name": "paymentId", "type": "string", "doc": "Unique payment identifier"},
+    {"name": "orderId", "type": "string", "doc": "Associated order identifier"},
+    {"name": "amount", "type": "double", "doc": "Payment amount"},
+    {"name": "currency", "type": ["null", "string"], "default": null, "doc": "Currency code (optional)"},
+    {"name": "paymentMethod", "type": ["null", "string"], "default": null, "doc": "Payment method (optional)"},
+    {"name": "timestamp", "type": ["null", "long"], "default": null, "doc": "Event timestamp in epoch millis (optional)"}
+  ]
+}

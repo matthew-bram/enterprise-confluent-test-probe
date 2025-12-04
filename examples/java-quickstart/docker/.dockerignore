@@ -1,0 +1,34 @@
+# =============================================================================
+# Docker Ignore - Test-Probe Java Quickstart
+# =============================================================================
+# Exclude files not needed in the Docker build context.
+
+# Build artifacts
+target/
+*.jar
+*.war
+*.ear
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
+
+# Git
+.git/
+.gitignore
+
+# Local files
+*.log
+*.tmp
+.DS_Store
+
+# Documentation (not needed in container)
+*.md
+docs/
+
+# Kubernetes manifests (separate deployment)
+kubernetes/

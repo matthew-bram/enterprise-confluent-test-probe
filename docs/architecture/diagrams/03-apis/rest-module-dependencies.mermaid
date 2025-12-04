@@ -1,0 +1,120 @@
+```mermaid
+graph TB
+    %% Modules
+    subgraph interfaces["test-probe-interfaces Module"]
+        direction TB
+        RestRoutes["RestRoutes<br/>(256 lines)<br/>HTTP Endpoints"]
+        RestValidation["RestValidation<br/>(91 lines)<br/>Request Validation"]
+        RestErrorResponse["RestErrorResponse<br/>(97 lines)<br/>Error Factory"]
+        RestExceptionHandler["RestExceptionHandler<br/>(130 lines)<br/>Exception → HTTP Status"]
+        RestRejectionHandler["RestRejectionHandler<br/>(99 lines)<br/>Rejection → HTTP Status"]
+        RestModels["RestModels<br/>REST DTOs<br/>(kebab-case)"]
+        RestModelConversions["RestModelConversions<br/>(80 lines)<br/>Anti-Corruption Layer"]
+        InterfacesConfig["InterfacesConfig<br/>(124 lines)<br/>Type-safe Configuration"]
+        InterfacesBootstrap["InterfacesBootstrap<br/>HTTP Server Lifecycle"]
+    end
+
+    subgraph core["test-probe-core Module"]
+        direction TB
+        ServiceInterfaceFunctions["ServiceInterfaceFunctions<br/>(Port Interface)<br/>Business Operations"]
+        ServiceInterfaceFunctionsFactory["ServiceInterfaceFunctionsFactory<br/>Circuit Breaker Integration"]
+        CircuitBreaker["CircuitBreaker<br/>(Pekko Pattern)<br/>Fail-Fast Pattern"]
+        GuardianActor["GuardianActor<br/>Root Supervisor"]
+        QueueActor["QueueActor<br/>Test Queue Management"]
+        TestExecutionActor["TestExecutionActor<br/>7-State FSM"]
+        CoreModels["Core Models<br/>(camelCase)<br/>Domain Objects"]
+        ActorCommands["ActorCommands<br/>Message Protocols"]
+    end
+
+    subgraph common["test-probe-common Module"]
+        CommonModels["Common Models<br/>Shared DTOs"]
+    end
+
+    subgraph pekko["Apache Pekko"]
+        PekkoHTTP["Pekko HTTP 1.1.0<br/>HTTP Server"]
+        PekkoActorTyped["Pekko Actor Typed<br/>Actor System"]
+        SprayJSON["Spray JSON<br/>JSON Marshalling"]
+    end
+
+    %% Dependencies: Interfaces → Core
+    RestRoutes -->|uses| RestValidation
+    RestRoutes -->|uses| RestErrorResponse
+    RestRoutes -->|uses| RestModelConversions
+    RestRoutes -->|uses| RestModels
+    RestRoutes -->|delegates to| ServiceInterfaceFunctions
+
+    RestExceptionHandler -->|creates| RestErrorResponse
+    RestRejectionHandler -->|creates| RestErrorResponse
+
+    RestModelConversions -->|converts| RestModels
+    RestModelConversions -->|converts| CoreModels
+
+    InterfacesBootstrap -->|creates| RestRoutes
+    InterfacesBootstrap -->|loads| InterfacesConfig
+
+    %% Dependencies: Core Layer
+    ServiceInterfaceFunctions -->|interface for| ServiceInterfaceFunctionsFactory
+    ServiceInterfaceFunctionsFactory -->|wraps| CircuitBreaker
+    CircuitBreaker -->|protects| GuardianActor
+
+    GuardianActor -->|supervises| QueueActor
+    QueueActor -->|creates| TestExecutionActor
+
+    ServiceInterfaceFunctions -->|returns| CoreModels
+    GuardianActor -->|handles| ActorCommands
+
+    %% Dependencies: Pekko
+    RestRoutes -->|uses| PekkoHTTP
+    RestRoutes -->|marshals with| SprayJSON
+    RestExceptionHandler -->|Pekko HTTP| PekkoHTTP
+    RestRejectionHandler -->|Pekko HTTP| PekkoHTTP
+
+    InterfacesBootstrap -->|binds| PekkoHTTP
+    GuardianActor -->|runs on| PekkoActorTyped
+    CircuitBreaker -->|uses| PekkoActorTyped
+
+    %% Dependencies: Common
+    CoreModels -->|extends| CommonModels
+    RestModels -->|mirrors| CommonModels
+
+    %% Styling
+    classDef interfacesModule fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef coreModule fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
+    classDef commonModule fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef pekkoModule fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+
+    class RestRoutes,RestValidation,RestErrorResponse,RestExceptionHandler,RestRejectionHandler,RestModels,RestModelConversions,InterfacesConfig,InterfacesBootstrap interfacesModule
+    class ServiceInterfaceFunctions,ServiceInterfaceFunctionsFactory,CircuitBreaker,GuardianActor,QueueActor,TestExecutionActor,CoreModels,ActorCommands coreModule
+    class CommonModels commonModule
+    class PekkoHTTP,PekkoActorTyped,SprayJSON pekkoModule
+```
+
+**Module Responsibilities:**
+
+**test-probe-interfaces (Adapter Layer):**
+- HTTP request/response handling
+- Request validation (format checks)
+- Error response formatting
+- Anti-corruption layer (REST ↔ Core)
+- Configuration management
+
+**test-probe-core (Business Logic):**
+- Actor system (GuardianActor, QueueActor, TestExecutionActor)
+- Business logic (test lifecycle, FSM)
+- Circuit breaker integration
+- Service interface (port)
+
+**test-probe-common (Shared):**
+- Common domain models
+- Shared utilities
+
+**Apache Pekko (Framework):**
+- HTTP server (Pekko HTTP)
+- Actor system (Pekko Typed Actors)
+- JSON marshalling (Spray JSON)
+
+**Key Architecture Patterns:**
+1. **Hexagonal Architecture:** Interfaces module is adapter, Core module is port
+2. **Anti-Corruption Layer:** RestModelConversions prevents REST concerns leaking into core
+3. **Clean Dependency Direction:** interfaces → core (never reverse)
+4. **Circuit Breaker:** Fail-fast protection for actor communication

@@ -1,0 +1,8 @@
+# =============================================================================
+# Test-Probe Java Quickstart - Namespace
+# =============================================================================
+# Raw Kubernetes manifest - alternative to Helm
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quickstart

@@ -1,4 +1,5 @@
-package io.distia.probe
+package io.distia
+package probe
 package common
 package rosetta
 

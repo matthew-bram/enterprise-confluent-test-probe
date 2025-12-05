@@ -26,8 +26,8 @@ private[core] object TestcontainersManager {
   private val isCI: Boolean = sys.env.getOrElse("CI", "false").toBoolean
 
   // Longer timeouts for CI environments
-  private val maxAttempts: Int = if isCI then 60 else 30
-  private val stabilizationDelayMs: Int = if isCI then 5000 else 1000
+  private val maxAttempts: Int = if isCI then 90 else 30
+  private val stabilizationDelayMs: Int = if isCI then 10000 else 1000
 
   sys.addShutdownHook {
     println(s"[TestcontainersManager] JVM shutdown detected, cleaning up ${clusters.size} cluster(s)...")

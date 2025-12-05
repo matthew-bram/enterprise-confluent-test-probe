@@ -630,9 +630,6 @@ private[core] class DefaultActorSystemSpec extends AnyWordSpec with Matchers wit
   "DefaultActorSystem.initialize() ProbeScalaDsl integration" should {
 
     "register ActorSystem with ProbeScalaDsl during initialization" in {
-      // Ensure clean slate - no previous system registered
-      ProbeScalaDsl.clearSystem()
-
       val module = new DefaultActorSystem()
       val ctx = createConfiguredContext()
         .withVaultService(new MockVaultService())
@@ -660,15 +657,11 @@ private[core] class DefaultActorSystemSpec extends AnyWordSpec with Matchers wit
             system.terminate()
             Await.result(system.whenTerminated, 10.seconds)
           }
-          ProbeScalaDsl.clearSystem()
         }
       }
     }
 
     "allow DSL operations after initialization" in {
-      // Ensure clean slate
-      ProbeScalaDsl.clearSystem()
-
       val module = new DefaultActorSystem()
       val ctx = createConfiguredContext()
         .withVaultService(new MockVaultService())
@@ -699,7 +692,6 @@ private[core] class DefaultActorSystemSpec extends AnyWordSpec with Matchers wit
             system.terminate()
             Await.result(system.whenTerminated, 10.seconds)
           }
-          ProbeScalaDsl.clearSystem()
         }
       }
     }

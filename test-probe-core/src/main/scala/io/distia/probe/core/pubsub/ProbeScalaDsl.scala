@@ -50,8 +50,6 @@ object ProbeScalaDsl {
     )
     SerdesFactory.setClient(new CachedSchemaRegistryClient(schemaRegistryUri, 100, schemaProviders, null), schemaRegistryUri)
 
-  private[core] def clearSystem(): Unit = systemOpt = None
-
   private[core] def registerProducerActor(testId: UUID, topic: String, producer: ActorRef[KafkaProducerStreamingCommand]): Unit =
     producers.put((testId, topic), producer)
 

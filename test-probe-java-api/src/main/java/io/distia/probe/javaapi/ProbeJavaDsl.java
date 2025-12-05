@@ -79,15 +79,6 @@ public final class ProbeJavaDsl {
     }
 
     /**
-     * Clear the registered actor system.
-     * Should be called during application shutdown.
-     */
-    public static void clearSystem() {
-        scalaDsl.clearSystem();
-        actorSystem = null;
-    }
-
-    /**
      * Produce event to Kafka topic (async).
      *
      * @param testId UUID of the test

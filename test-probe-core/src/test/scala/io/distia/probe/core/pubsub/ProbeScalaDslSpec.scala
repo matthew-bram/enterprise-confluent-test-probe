@@ -78,7 +78,6 @@ class ProbeScalaDslSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
   "ProbeScalaDsl.registerSystem" should {
 
     "initialize DSL with actor system" in {
-      ProbeScalaDsl.clearSystem() // Ensure clean state
       ProbeScalaDsl.registerSystem(testKit.system)
 
       // Verify system is registered by checking producer registration works
@@ -128,23 +127,6 @@ class ProbeScalaDslSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
       noException should be thrownBy {
         ProbeScalaDsl.registerProducerActor(testId, topic, probe.ref)
       }
-    }
-  }
-
-  "ProbeScalaDsl.clearSystem" should {
-
-    "clear registered system" in {
-      ProbeScalaDsl.registerSystem(testKit.system)
-      ProbeScalaDsl.clearSystem()
-
-      // Verify system is cleared by checking operations now fail
-      val exception = intercept[DslNotInitializedException] {
-        Await.result(
-          ProbeScalaDsl.produceEvent(UUID.randomUUID(), "topic", createCloudEvent(), "v", Map.empty[String, String]),
-          1.second
-        )
-      }
-      exception.getMessage should include("DSL not initialized")
     }
   }
 
@@ -409,23 +391,6 @@ class ProbeScalaDslSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
 
   "ProbeScalaDsl.produceEvent" should {
 
-    "throw DslNotInitializedException when system not registered" in {
-      ProbeScalaDsl.clearSystem()
-
-      val testId = UUID.randomUUID()
-      val topic = "test-events"
-      val cloudEvent = createCloudEvent()
-
-      val exception = intercept[DslNotInitializedException] {
-        Await.result(
-          ProbeScalaDsl.produceEvent(testId, topic, cloudEvent, "test-value", Map.empty[String, String]),
-          5.seconds
-        )
-      }
-
-      exception.getMessage should include("DSL not initialized")
-    }
-
     "throw ActorNotRegisteredException when producer not registered" in {
       ProbeScalaDsl.registerSystem(testKit.system)
 
@@ -447,23 +412,6 @@ class ProbeScalaDslSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
   }
 
   "ProbeScalaDsl.fetchConsumedEvent" should {
-
-    "throw DslNotInitializedException when system not registered" in {
-      ProbeScalaDsl.clearSystem()
-
-      val testId = UUID.randomUUID()
-      val topic = "test-events"
-      val correlationId = UUID.randomUUID().toString
-
-      val exception = intercept[DslNotInitializedException] {
-        Await.result(
-          ProbeScalaDsl.fetchConsumedEvent[String](testId, topic, correlationId),
-          5.seconds
-        )
-      }
-
-      exception.getMessage should include("DSL not initialized")
-    }
 
     "throw ActorNotRegisteredException when consumer not registered" in {
       ProbeScalaDsl.registerSystem(testKit.system)
@@ -636,20 +584,6 @@ class ProbeScalaDslSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
 
   "ProbeScalaDsl.produceEventBlocking" should {
 
-    "throw DslNotInitializedException when system not registered" in {
-      ProbeScalaDsl.clearSystem()
-
-      val testId = UUID.randomUUID()
-      val topic = "test-events"
-      val cloudEvent = createCloudEvent()
-
-      val exception = intercept[DslNotInitializedException] {
-        ProbeScalaDsl.produceEventBlocking(testId, topic, cloudEvent, "test-value", Map.empty[String, String])
-      }
-
-      exception.getMessage should include("DSL not initialized")
-    }
-
     "throw ActorNotRegisteredException when producer not registered" in {
       ProbeScalaDsl.registerSystem(testKit.system)
 
@@ -666,20 +600,6 @@ class ProbeScalaDslSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
   }
 
   "ProbeScalaDsl.fetchConsumedEventBlocking" should {
-
-    "throw DslNotInitializedException when system not registered" in {
-      ProbeScalaDsl.clearSystem()
-
-      val testId = UUID.randomUUID()
-      val topic = "test-events"
-      val correlationId = UUID.randomUUID().toString
-
-      val exception = intercept[DslNotInitializedException] {
-        ProbeScalaDsl.fetchConsumedEventBlocking[String](testId, topic, correlationId)
-      }
-
-      exception.getMessage should include("DSL not initialized")
-    }
 
     "throw ActorNotRegisteredException when consumer not registered" in {
       ProbeScalaDsl.registerSystem(testKit.system)
@@ -724,46 +644,6 @@ class ProbeScalaDslSpec extends AnyWordSpec with Matchers with BeforeAndAfterAll
     }
   }
 
-  "ProbeScalaDsl error recovery" should {
-
-    "re-throw DslException without wrapping in produceEvent" in {
-      // This tests the recoverWith branch that passes through DslExceptions
-      ProbeScalaDsl.clearSystem()
-
-      val testId = UUID.randomUUID()
-      val topic = "test-events"
-      val cloudEvent = createCloudEvent()
-
-      // DslNotInitializedException should be thrown directly, not wrapped
-      val exception = intercept[DslNotInitializedException] {
-        Await.result(
-          ProbeScalaDsl.produceEvent(testId, topic, cloudEvent, "test-value", Map.empty[String, String]),
-          5.seconds
-        )
-      }
-
-      exception shouldBe a[DslNotInitializedException]
-    }
-
-    "re-throw DslException without wrapping in fetchConsumedEvent" in {
-      // This tests the recoverWith branch that passes through DslExceptions
-      ProbeScalaDsl.clearSystem()
-
-      val testId = UUID.randomUUID()
-      val topic = "test-events"
-      val correlationId = UUID.randomUUID().toString
-
-      // DslNotInitializedException should be thrown directly, not wrapped
-      val exception = intercept[DslNotInitializedException] {
-        Await.result(
-          ProbeScalaDsl.fetchConsumedEvent[String](testId, topic, correlationId),
-          5.seconds
-        )
-      }
-
-      exception shouldBe a[DslNotInitializedException]
-    }
-  }
 
   "ProbeScalaDsl consumer overwrite" should {
 

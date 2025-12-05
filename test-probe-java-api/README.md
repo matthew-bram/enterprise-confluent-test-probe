@@ -76,9 +76,6 @@ if (consumed instanceof ConsumedSuccess) {
     OrderProcessedEvent event = (OrderProcessedEvent) success.value();
     System.out.println("Order processed: " + event.getOrderId());
 }
-
-// 4. Cleanup
-ProbeJavaDsl.clearSystem();
 ```
 
 ## Documentation

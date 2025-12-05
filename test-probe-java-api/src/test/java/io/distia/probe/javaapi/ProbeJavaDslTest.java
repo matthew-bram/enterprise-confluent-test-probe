@@ -83,12 +83,6 @@ class ProbeJavaDslTest {
         testKit.shutdownTestKit();
     }
 
-    @BeforeEach
-    void beforeEach() {
-        // Clear system before each test for isolation
-        ProbeJavaDsl.clearSystem();
-    }
-
     // Helper method to create CloudEvent
     private CloudEvent createCloudEvent() {
         return new CloudEvent(
@@ -125,48 +119,8 @@ class ProbeJavaDslTest {
     }
 
     // ========================================================================
-    // clearSystem Tests
-    // ========================================================================
-
-    @Test
-    @DisplayName("clearSystem should clear registered system")
-    void clearSystemShouldClearRegisteredSystem() {
-        ProbeJavaDsl.registerSystem(system);
-        assertDoesNotThrow(() -> ProbeJavaDsl.clearSystem());
-    }
-
-    // ========================================================================
     // produceEvent (async) Tests
     // ========================================================================
-
-    @Test
-    @DisplayName("produceEvent should throw DslNotInitializedException when system not registered")
-    void produceEventAsyncShouldThrowWhenSystemNotRegistered() throws InterruptedException {
-        ProbeJavaDsl.clearSystem();
-
-        UUID testId = UUID.randomUUID();
-        String topic = "test-events";
-        CloudEvent event = createCloudEvent();
-        Map<String, String> headers = Map.of();
-
-        CompletionStage<ProduceResult> futureResult = ProbeJavaDsl.produceEvent(
-            testId,
-            topic,
-            event,
-            "test-value",
-            headers,
-            String.class
-        );
-
-        // Attempt to get result - should throw
-        ExecutionException exception = assertThrows(ExecutionException.class, () ->
-            futureResult.toCompletableFuture().get(5, TimeUnit.SECONDS)
-        );
-
-        // Verify cause is DslNotInitializedException
-        assertInstanceOf(DslNotInitializedException.class, exception.getCause());
-        assertTrue(exception.getCause().getMessage().contains("DSL not initialized"));
-    }
 
     @Test
     @DisplayName("produceEvent should throw ActorNotRegisteredException when producer not registered")
@@ -268,30 +222,6 @@ class ProbeJavaDslTest {
     // ========================================================================
 
     @Test
-    @DisplayName("produceEventBlocking should throw DslNotInitializedException when system not registered")
-    void produceEventBlockingShouldThrowWhenSystemNotRegistered() {
-        ProbeJavaDsl.clearSystem();
-
-        UUID testId = UUID.randomUUID();
-        String topic = "test-events";
-        CloudEvent event = createCloudEvent();
-        Map<String, String> headers = Map.of();
-
-        DslNotInitializedException exception = assertThrows(DslNotInitializedException.class, () ->
-            ProbeJavaDsl.produceEventBlocking(
-                testId,
-                topic,
-                event,
-                "test-value",
-                headers,
-                String.class
-            )
-        );
-
-        assertTrue(exception.getMessage().contains("DSL not initialized"));
-    }
-
-    @Test
     @DisplayName("produceEventBlocking should throw ActorNotRegisteredException when producer not registered")
     void produceEventBlockingShouldThrowWhenProducerNotRegistered() {
         ProbeJavaDsl.registerSystem(system);
@@ -321,30 +251,6 @@ class ProbeJavaDslTest {
     // ========================================================================
     // fetchConsumedEvent (async) Tests
     // ========================================================================
-
-    @Test
-    @DisplayName("fetchConsumedEvent should throw DslNotInitializedException when system not registered")
-    void fetchConsumedEventAsyncShouldThrowWhenSystemNotRegistered() throws InterruptedException {
-        ProbeJavaDsl.clearSystem();
-
-        UUID testId = UUID.randomUUID();
-        String topic = "test-events";
-        String correlationId = UUID.randomUUID().toString();
-
-        CompletionStage<ConsumedResult> futureResult = ProbeJavaDsl.fetchConsumedEvent(
-            testId,
-            topic,
-            correlationId,
-            String.class
-        );
-
-        ExecutionException exception = assertThrows(ExecutionException.class, () ->
-            futureResult.toCompletableFuture().get(5, TimeUnit.SECONDS)
-        );
-
-        assertInstanceOf(DslNotInitializedException.class, exception.getCause());
-        assertTrue(exception.getCause().getMessage().contains("DSL not initialized"));
-    }
 
     @Test
     @DisplayName("fetchConsumedEvent should throw ActorNotRegisteredException when consumer not registered")
@@ -401,27 +307,6 @@ class ProbeJavaDslTest {
     // ========================================================================
     // fetchConsumedEventBlocking Tests
     // ========================================================================
-
-    @Test
-    @DisplayName("fetchConsumedEventBlocking should throw DslNotInitializedException when system not registered")
-    void fetchConsumedEventBlockingShouldThrowWhenSystemNotRegistered() {
-        ProbeJavaDsl.clearSystem();
-
-        UUID testId = UUID.randomUUID();
-        String topic = "test-events";
-        String correlationId = UUID.randomUUID().toString();
-
-        DslNotInitializedException exception = assertThrows(DslNotInitializedException.class, () ->
-            ProbeJavaDsl.fetchConsumedEventBlocking(
-                testId,
-                topic,
-                correlationId,
-                String.class
-            )
-        );
-
-        assertTrue(exception.getMessage().contains("DSL not initialized"));
-    }
 
     @Test
     @DisplayName("fetchConsumedEventBlocking should throw ActorNotRegisteredException when consumer not registered")

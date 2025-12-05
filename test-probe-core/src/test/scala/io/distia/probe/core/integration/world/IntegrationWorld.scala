@@ -403,9 +403,6 @@ class IntegrationWorld
   def cleanup(): Unit =
     println("[IntegrationWorld] Cleaning up resources...")
 
-    // Clear DSL singleton
-    ProbeScalaDsl.clearSystem()
-
     // Terminate ActorSystem
     realActorSystemOpt.foreach { actorSystem =>
       actorSystem.terminate()

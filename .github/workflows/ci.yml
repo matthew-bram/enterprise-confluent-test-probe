@@ -29,11 +29,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Compile all modules
-        run: ./mvnw compile test-compile -q
+      - name: Build and compile
+        run: ./mvnw compile -q
 
-      # Tests require Docker/Testcontainers and must be run locally
-      # See docs/developer-guide/testing.md for local test execution
+      - name: Run unit tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
+        run: ./mvnw test -Punit-only
 
-      - name: Package artifacts
-        run: ./mvnw package -DskipTests -q
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/target/surefire-reports/'
+          retention-days: 7

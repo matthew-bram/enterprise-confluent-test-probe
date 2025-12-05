@@ -37,6 +37,14 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: true
         run: ./mvnw test -Punit-only
 
+      - name: Run component tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
+        run: ./mvnw test -Pcomponent-only
+
+      - name: Package artifacts
+        run: ./mvnw package -DskipTests -q
+
       - name: Upload test results
         uses: actions/upload-artifact@v4
         if: always()

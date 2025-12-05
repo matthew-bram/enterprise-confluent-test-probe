@@ -22,6 +22,13 @@ private[core] object TestcontainersManager {
 
   private val clusters: mutable.Map[String, ClusterInfo] = mutable.Map.empty
 
+  // CI environment detection - GitHub Actions sets CI=true
+  private val isCI: Boolean = sys.env.getOrElse("CI", "false").toBoolean
+
+  // Longer timeouts for CI environments
+  private val maxAttempts: Int = if isCI then 60 else 30
+  private val stabilizationDelayMs: Int = if isCI then 5000 else 1000
+
   sys.addShutdownHook {
     println(s"[TestcontainersManager] JVM shutdown detected, cleaning up ${clusters.size} cluster(s)...")
     cleanupAll()
@@ -122,7 +129,7 @@ private[core] object TestcontainersManager {
   }
 
   def createCluster(name: String): ClusterInfo = {
-    println(s"[TestcontainersManager] Creating cluster '$name'...")
+    println(s"[TestcontainersManager] Creating cluster '$name'... (CI mode: $isCI)")
 
     val network: Network = Network.newNetwork()
 
@@ -132,6 +139,9 @@ private[core] object TestcontainersManager {
     kafka.start()
     val bootstrapServers: String = kafka.getBootstrapServers
     println(s"[TestcontainersManager] Kafka started for cluster '$name': $bootstrapServers")
+
+    // Wait for Kafka broker to be fully ready
+    waitForKafkaBroker(bootstrapServers, name)
 
     val schemaRegistry = new GenericContainer(DockerImageName.parse("confluentinc/cp-schema-registry:7.5.0"))
     schemaRegistry.withNetwork(network)
@@ -148,6 +158,12 @@ private[core] object TestcontainersManager {
     // Create test topics with leaders elected
     // Include all topics used by integration tests
     createTopics(bootstrapServers, List("test-events", "test-events-json", "order-events-avro"), name)
+
+    // Additional stabilization delay for CI environments
+    if isCI then
+      println(s"[TestcontainersManager] CI detected - waiting ${stabilizationDelayMs}ms for cluster stabilization...")
+      Thread.sleep(stabilizationDelayMs)
+      println(s"[TestcontainersManager] Stabilization complete for cluster '$name'")
 
     ClusterInfo(
       kafka = kafka,
@@ -215,8 +231,40 @@ private[core] object TestcontainersManager {
     }
   }
 
+  def waitForKafkaBroker(bootstrapServers: String, clusterName: String): Unit = {
+    var attempt: Int = 0
+    var ready: Boolean = false
+
+    println(s"[TestcontainersManager] Waiting for Kafka broker to be ready for cluster '$clusterName'...")
+
+    val props = new Properties()
+    props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers)
+    props.put(AdminClientConfig.REQUEST_TIMEOUT_MS_CONFIG, "5000")
+    props.put(AdminClientConfig.DEFAULT_API_TIMEOUT_MS_CONFIG, "5000")
+
+    while (!ready && attempt < maxAttempts) {
+      var adminClient: AdminClient = null
+      try {
+        adminClient = AdminClient.create(props)
+        val clusterId = adminClient.describeCluster().clusterId().get()
+        ready = true
+        println(s"[TestcontainersManager] Kafka broker is ready for cluster '$clusterName' (cluster ID: $clusterId)")
+      } catch {
+        case _: Exception =>
+          attempt += 1
+          if attempt % 10 == 0 then
+            println(s"[TestcontainersManager] Still waiting for Kafka broker... (attempt $attempt/$maxAttempts)")
+          Thread.sleep(1000)
+      } finally {
+        if adminClient != null then adminClient.close()
+      }
+    }
+
+    if !ready then
+      throw new RuntimeException(s"Kafka broker failed to start for cluster '$clusterName' after $maxAttempts attempts")
+  }
+
   def waitForSchemaRegistry(schemaRegistryUrl: String, clusterName: String): Unit = {
-    val maxAttempts: Int = 30
     var attempt: Int = 0
     var ready: Boolean = false
 
@@ -227,8 +275,8 @@ private[core] object TestcontainersManager {
         val url = new URL(s"$schemaRegistryUrl/subjects")
         val connection: HttpURLConnection = url.openConnection().asInstanceOf[HttpURLConnection]
         connection.setRequestMethod("GET")
-        connection.setConnectTimeout(1000)
-        connection.setReadTimeout(1000)
+        connection.setConnectTimeout(2000)
+        connection.setReadTimeout(2000)
         val responseCode: Int = connection.getResponseCode
 
         if responseCode == 200 then
@@ -239,6 +287,8 @@ private[core] object TestcontainersManager {
       } catch {
         case _: Exception =>
           attempt += 1
+          if attempt % 10 == 0 then
+            println(s"[TestcontainersManager] Still waiting for Schema Registry... (attempt $attempt/$maxAttempts)")
           Thread.sleep(1000)
       }
     }

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package com.fake.company.tests;
+
+option java_package = "com.fake.company.tests";
+option java_outer_classname = "PaymentEventProtos";
+option java_multiple_files = true;
+
+// PaymentEvent schema for Protobuf integration testing.
+// Used by Java teams to demonstrate Protobuf event production/consumption.
+// Field numbers match PaymentEvent.java implementation.
+message PaymentEventProto {
+  string event_type = 1;      // Event type discriminator (default: "PaymentEvent")
+  string payment_id = 2;      // Unique payment identifier
+  string order_id = 3;        // Associated order identifier
+  double amount = 4;          // Payment amount
+  string currency = 5;        // Currency code (USD, EUR, etc.)
+  string payment_method = 6;  // Payment method (CREDIT_CARD, PAYPAL, etc.)
+  int64 timestamp = 7;        // Event timestamp in epoch millis
+}

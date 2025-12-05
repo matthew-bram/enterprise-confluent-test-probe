@@ -1,0 +1,173 @@
+```mermaid
+stateDiagram-v2
+    [*] --> Closed: System starts
+
+    state "Closed (Normal Operation)" as Closed {
+        [*] --> Processing
+        Processing --> CheckResult: Request completes
+        CheckResult --> Success: Actor responds
+        CheckResult --> Failure: Actor timeout/error
+        Success --> ResetCounter: Reset failure count to 0
+        Failure --> IncrementCounter: Increment failure count
+        IncrementCounter --> CheckThreshold: Check count
+        CheckThreshold --> Processing: count < 5 (continue)
+        ResetCounter --> Processing
+    }
+
+    state "Open (Fail Fast)" as Open {
+        [*] --> Rejecting
+        Rejecting --> ThrowException: Immediately throw<br/>ServiceUnavailableException
+        ThrowException --> WaitTimer: Wait for reset timeout<br/>(30 seconds)
+    }
+
+    state "Half-Open (Testing Recovery)" as HalfOpen {
+        [*] --> AllowOne
+        AllowOne --> TestRequest: Allow 1 test request
+        TestRequest --> TestResult: Wait for result
+        TestResult --> TestSuccess: Request succeeds
+        TestResult --> TestFailure: Request fails
+    }
+
+    Closed --> Open: Failure count = 5<br/>(max-failures threshold)
+    Open --> HalfOpen: 30 seconds pass<br/>(reset-timeout)
+    HalfOpen --> Closed: Test request succeeds<br/>(reset failure count)
+    HalfOpen --> Open: Test request fails<br/>(reopen circuit)
+
+    note right of Closed
+        Configuration:
+        - max-failures: 5
+        - call-timeout: 25s
+        - Requests pass through
+        - Failures incremented
+        - Successes reset counter
+    end note
+
+    note right of Open
+        Configuration:
+        - reset-timeout: 30s
+        - All requests fail immediately
+        - No actor communication
+        - REST returns 503 with
+          retryAfter: "30s"
+    end note
+
+    note right of HalfOpen
+        - Allow 1 test request
+        - If success → Closed
+        - If failure → Open
+        - Auto-recovery attempt
+    end note
+
+    %% HTTP Response Mapping
+    state "REST API Response Mapping" as ResponseMapping {
+        state "Closed State" as ClosedResponse
+        state "Open State" as OpenResponse
+        state "Half-Open State" as HalfOpenResponse
+
+        ClosedResponse: Request → Actor Ask → Response
+        ClosedResponse: Success: 200/201/202
+        ClosedResponse: Timeout: 504 Gateway Timeout
+        ClosedResponse: Error: 500 Internal Server Error
+
+        OpenResponse: Request → Immediate Failure
+        OpenResponse: 503 Service Unavailable
+        OpenResponse: retryAfter: "30s"
+        OpenResponse: No actor communication (<1ms)
+
+        HalfOpenResponse: Test Request → Actor Ask
+        HalfOpenResponse: Success: Close circuit → 200/201/202
+        HalfOpenResponse: Failure: Reopen circuit → 503
+    }
+
+    %% Timeline Example
+    state "Example Timeline" as Timeline {
+        state "t=0s: Request 1" as T0
+        state "t=1s: Request 2" as T1
+        state "t=2s: Request 3" as T2
+        state "t=3s: Request 4" as T3
+        state "t=4s: Request 5" as T4
+        state "t=5s: Request 6" as T5
+        state "t=35s: Request 7" as T35
+        state "t=36s: Request 8" as T36
+
+        T0: Actor timeout (25s)<br/>Failure count: 1
+        T1: Actor timeout (25s)<br/>Failure count: 2
+        T2: Actor timeout (25s)<br/>Failure count: 3
+        T3: Actor timeout (25s)<br/>Failure count: 4
+        T4: Actor timeout (25s)<br/>Failure count: 5<br/>→ Circuit OPENS
+        T5: Circuit OPEN<br/>503 Service Unavailable<br/>retryAfter: "30s"<br/>(<1ms response)
+        T35: 30s passed<br/>Circuit → Half-Open<br/>Allow 1 test request
+        T36: Test request succeeds<br/>Circuit → Closed<br/>Normal operation resumed
+
+        T0 --> T1
+        T1 --> T2
+        T2 --> T3
+        T3 --> T4
+        T4 --> T5
+        T5 --> T35
+        T35 --> T36
+    }
+```
+
+**Circuit Breaker Configuration:**
+
+```hocon
+# test-probe-interfaces/src/main/resources/reference.conf
+
+test-probe.interfaces.rest {
+  circuit-breaker-max-failures = 5      # Open after 5 failures
+  circuit-breaker-call-timeout = 25s    # Must equal ask-timeout
+  circuit-breaker-reset-timeout = 30s   # Half-open after 30s
+}
+```
+
+**Implementation:**
+
+```scala
+// test-probe-core/src/main/scala/.../ServiceInterfaceFunctionsFactory.scala
+
+val circuitBreaker = CircuitBreaker(
+  scheduler = system.scheduler,
+  maxFailures = config.circuitBreakerMaxFailures,        // 5
+  callTimeout = config.circuitBreakerCallTimeout,        // 25s
+  resetTimeout = config.circuitBreakerResetTimeout       // 30s
+)
+
+def initializeTest(): Future[InitializeTestResponse] =
+  circuitBreaker.withCircuitBreaker {
+    guardian.ask[InitializeTestResponse](InitializeTest(_))
+  }
+```
+
+**REST Response Handling:**
+
+```scala
+// test-probe-interfaces/src/main/scala/.../RestExceptionHandler.scala
+
+case ex: ServiceUnavailableException =>
+  logger.warn(s"Service unavailable: ${ex.getMessage}")
+  complete(
+    StatusCodes.ServiceUnavailable,
+    RestErrorResponse.serviceUnavailable(ex.getMessage, "30s")
+  )
+```
+
+**Client Behavior:**
+
+```typescript
+async function callAPI(url: string): Promise<Response> {
+  const response = await fetch(url);
+
+  if (response.status === 503) {
+    const error = await response.json();
+    const retryAfter = parseRetryAfter(error.retryAfter);  // "30s" → 30000ms
+
+    console.log(`Circuit breaker open, retrying after ${retryAfter}ms`);
+    await sleep(retryAfter);
+
+    return callAPI(url);  // Retry after delay
+  }
+
+  return response;
+}
+```

@@ -1,0 +1,96 @@
+# Namespace configuration
+namespace:
+  name: kafka
+
+# Kafka configuration
+kafka:
+  image:
+    repository: apache/kafka
+    tag: "3.7.0"
+    pullPolicy: IfNotPresent
+
+  # KRaft controller configuration
+  kraft:
+    clusterId: "MkU3OEVBNTcwNTJENDM2Qk"  # Random base64 cluster ID (16 bytes)
+    nodeId: 1
+
+  # Resource limits for local development
+  resources:
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+
+  # Persistence
+  persistence:
+    enabled: true
+    storageClass: "hostpath"  # Docker Desktop default
+    size: "10Gi"
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 9092
+    nodePort: null
+
+  # Kafka configuration properties
+  config:
+    # Listener configuration
+    listeners: "PLAINTEXT://:9092,CONTROLLER://:9093"
+    advertisedListeners: "PLAINTEXT://kafka:9092"
+    listenerSecurityProtocolMap: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT"
+
+    # KRaft specific
+    processRoles: "broker,controller"
+    controllerListenerNames: "CONTROLLER"
+    controllerQuorumVoters: "1@kafka-0.kafka-headless.kafka.svc.cluster.local:9093"
+
+    # General settings
+    numPartitions: "3"
+    defaultReplicationFactor: "1"
+    minInsyncReplicas: "1"
+    offsetsTopicReplicationFactor: "1"
+    transactionStateLogReplicationFactor: "1"
+    transactionStateLogMinIsr: "1"
+
+    # Log settings
+    logRetentionHours: "168"
+    logSegmentBytes: "1073741824"
+    logRetentionCheckIntervalMs: "300000"
+
+    # Group coordinator settings
+    groupInitialRebalanceDelayMs: "0"
+
+# Schema Registry configuration
+schemaRegistry:
+  enabled: true
+
+  image:
+    repository: confluentinc/cp-schema-registry
+    tag: "7.6.0"
+    pullPolicy: IfNotPresent
+
+  replicas: 1
+
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+  service:
+    type: ClusterIP
+    port: 8081
+
+  config:
+    kafkastore:
+      bootstrapServers: "kafka:9092"
+      topic: "_schemas"
+
+    # Schema Registry specific settings
+    schemaCompatibilityLevel: "BACKWARD"
+    debug: "false"

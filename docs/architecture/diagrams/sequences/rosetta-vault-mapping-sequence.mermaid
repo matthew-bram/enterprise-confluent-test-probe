@@ -1,0 +1,106 @@
+```mermaid
+sequenceDiagram
+    participant VA as VaultActor
+    participant VS as VaultService<br/>(AwsVaultService)
+    participant Vault as Vault<br/>(AWS Secrets Manager)
+    participant RC as RosettaConfig
+    participant VCM as VaultCredentialsMapper
+    participant RM as RosettaMapper
+    participant RT as RosettaTransformations
+    participant JCB as JaasConfigBuilder
+    participant Config as application.conf
+
+    %% Initialization Phase
+    Note over VA,Config: Initialization Phase (Builder Lifecycle)
+
+    VS->>Config: Load rosetta-mapping-path
+    Config-->>VS: "classpath:rosetta/vault-credentials-mapping.yaml"
+
+    VS->>RC: load(mappingPath)
+    RC->>RC: Detect file format<br/>(yaml vs json)
+    RC->>RC: Parse mapping file<br/>(Circe YAML parser)
+    RC-->>VS: RosettaConfig<br/>(4 field mappings)
+
+    Note over VS: RosettaConfig cached<br/>for subsequent fetches
+
+    %% Vault Fetch Phase
+    Note over VA,Config: Vault Credentials Fetch Phase
+
+    VA->>VS: fetchSecurityDirectives(directive)
+    Note over VS: BlockStorageDirective contains<br/>topic list from test
+
+    VS->>Vault: Fetch credentials for topics<br/>(Lambda invocation or API call)
+    Vault-->>VS: Raw vault JSON<br/>(nested structure)
+
+    Note over VS: Example vault JSON:<br/>{<br/>  "kafka": {<br/>    "topics": [{name: "orders.events"}],<br/>    "credentials": {<br/>      "oauth": {<br/>        "client_id": "kafka-123",<br/>        "client_secret": "base64secret=="<br/>      }<br/>    }<br/>  }<br/>}
+
+    %% Rosetta Mapping Phase
+    Note over VS,RT: Rosetta Mapping Phase (JSON → VaultCredentials)
+
+    VS->>VCM: mapToVaultCredentials(vaultJson, rosettaConfig)
+
+    loop For each field mapping
+        VCM->>RM: extract(json, "$.kafka.topics[0].name")
+        RM->>RM: Navigate JSONPath<br/>(nested field access)
+        RM-->>VCM: Json("orders.events")
+
+        alt Has transformations
+            VCM->>RT: apply transformations<br/>(base64Decode, toUpper, etc.)
+            RT->>RT: Chain transformations
+            RT-->>VCM: Transformed value
+        end
+    end
+
+    alt All required fields mapped successfully
+        VCM-->>VS: Right(VaultCredentials)<br/>(topic, role, clientId, clientSecret)
+    else Missing required fields
+        VCM-->>VS: Left(NonEmptyList[String])<br/>("Missing field: clientId", ...)
+        VS-->>VA: Future.failed(VaultException)
+    end
+
+    %% JAAS Construction Phase
+    Note over VS,Config: JAAS Construction Phase (Framework-Controlled)
+
+    VS->>Config: Load OAuth configuration
+    Config-->>VS: oauth.token-endpoint<br/>oauth.client-scope
+
+    VS->>JCB: build(clientId, clientSecret, tokenEndpoint, scope)
+    JCB->>JCB: Format JAAS template<br/>with credentials + OAuth config
+    JCB->>JCB: Escape special chars<br/>in credentials
+    JCB-->>VS: jaasConfig string
+
+    Note over JCB: jaasConfig =<br/>"org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required<br/>oauth.client.id=\"kafka-123\"<br/>oauth.client.secret=\"decodedSecret\"<br/>oauth.token.endpoint.uri=\"https://oauth.com/token\"<br/>oauth.scope=\"kafka.producer\";"
+
+    %% SecurityDirective Creation
+    Note over VS,VA: SecurityDirective Creation Phase
+
+    VS->>VS: Create SecurityDirective<br/>(topic, role, clientSecret, jaasConfig)
+    VS-->>VA: List[SecurityDirective]
+
+    VA->>VA: Send SecurityFetched(testId, directives)<br/>to parent TestExecutionActor
+    VA->>VA: Send ChildGoodToGo(testId, self)<br/>to parent
+
+    Note over VA: VaultActor ready,<br/>TestExecutionActor can proceed<br/>to next FSM state
+
+    %% Error Flows
+    Note over VA,Vault: Error Flow: Invalid JSONPath
+
+    VS->>VCM: mapToVaultCredentials(vaultJson, invalidConfig)
+    VCM->>RM: extract(json, "$.invalid.path[99]")
+    RM->>RM: Navigate path<br/>(array index out of bounds)
+    RM-->>VCM: None (path not found)
+    VCM-->>VS: Left("Field 'topic' not found at path $.invalid.path[99]")
+    VS-->>VA: Future.failed(VaultException)
+
+    Note over VA: Exception bubbles to supervisor<br/>(TestExecutionActor)
+
+    %% Error Flow: Transformation Failure
+    Note over VA,RT: Error Flow: Transformation Failure
+
+    VS->>VCM: mapToVaultCredentials(vaultJson, configWithTransform)
+    VCM->>RT: base64Decode("not-valid-base64!!!")
+    RT->>RT: Validate base64 format
+    RT-->>VCM: Left("Invalid base64 encoding")
+    VCM-->>VS: Left("Transformation failed for field 'clientSecret': Invalid base64 encoding")
+    VS-->>VA: Future.failed(VaultException)
+```

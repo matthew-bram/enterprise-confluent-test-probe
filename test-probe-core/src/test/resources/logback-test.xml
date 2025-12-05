@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!-- Console appender for test output -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Project actors - keep at INFO to see important messages -->
+  <logger name="io.distia.probe.core.actors" level="INFO"/>
+
+  <!-- ProbeScalaDsl and pubsub - critical for debugging integration tests -->
+  <logger name="io.distia.probe.core.pubsub" level="DEBUG"/>
+
+  <!-- Pekko system logging - INFO to see actorSystem.log.info() calls -->
+  <logger name="org.apache.pekko.actor" level="INFO"/>
+  <logger name="org.apache.pekko.event" level="INFO"/>
+
+  <!-- Suppress extremely verbose Testcontainers and Docker client logs -->
+  <logger name="org.testcontainers" level="WARN"/>
+  <logger name="com.github.dockerjava" level="WARN"/>
+  <logger name="tc" level="WARN"/>
+
+  <!-- Suppress HTTP wire protocol logs (extremely verbose) -->
+  <logger name="com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.wire" level="ERROR"/>
+  <logger name="com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.headers" level="WARN"/>
+  <logger name="com.github.dockerjava.zerodep.shaded.org.apache.hc.client5.http.impl" level="WARN"/>
+
+  <!-- Kafka client logging -->
+  <logger name="org.apache.kafka" level="WARN"/>
+
+  <!-- Enable detailed logging for our custom serializer -->
+  <logger name="io.distia.probe.core.pubsub.ScalaConfluentJsonSerializer" level="INFO"/>
+
+  <!-- Suppress verbose Schema Registry and Confluent serializer logs -->
+  <logger name="io.confluent.kafka.schemaregistry" level="WARN"/>
+  <logger name="io.confluent.kafka.serializers" level="WARN"/>
+  <logger name="com.kjetland.jackson.jsonSchema" level="WARN"/>
+
+  <!-- ScalaTest debug logs -->
+  <logger name="org.scalatest" level="INFO"/>
+
+  <!-- Pekko Kafka logging -->
+  <logger name="org.apache.pekko.kafka" level="WARN"/>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+  </root>
+</configuration>

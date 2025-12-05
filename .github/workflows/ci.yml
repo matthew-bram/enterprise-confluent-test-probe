@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build and compile
+        run: ./mvnw compile -q
+
+      - name: Run unit tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
+        run: ./mvnw test -Punit-only
+
+      - name: Run component tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
+        run: ./mvnw test -Pcomponent-only
+
+      - name: Package artifacts
+        run: ./mvnw package -DskipTests -q
+
+      - name: Generate coverage report
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
+        run: ./mvnw scoverage:report -q
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: '**/target/scoverage.xml'
+          fail_ci_if_error: false
+          verbose: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/target/surefire-reports/'
+          retention-days: 7
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports
+          path: '**/target/site/scoverage/'
+          retention-days: 7

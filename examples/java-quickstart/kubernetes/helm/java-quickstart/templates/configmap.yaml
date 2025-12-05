@@ -1,0 +1,82 @@
+# =============================================================================
+# Test-Probe Java Quickstart - ConfigMap
+# =============================================================================
+# Contains application.conf for the Java Quickstart application.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configMap.name }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: java-quickstart
+    release: {{ .Release.Name }}
+data:
+  application.conf: |
+    # Kubernetes deployment configuration
+    test-probe {
+      core {
+        actor-system {
+          name = "quickstart"
+          timeout = 25s
+        }
+        kafka {
+          bootstrap-servers = {{ .Values.kafka.bootstrapServers | quote }}
+          schema-registry-url = {{ .Values.kafka.schemaRegistryUrl | quote }}
+        }
+        dsl {
+          ask-timeout = 3s
+        }
+      }
+      services {
+        vault {
+          provider = "local"
+          local.required-fields = ["clientId", "clientSecret"]
+        }
+        block-storage {
+          provider = "local"
+          topic-directive-file-name = "topic-directive.yaml"
+        }
+      }
+    }
+    pekko {
+      loglevel = "INFO"
+    }
+
+  topic-directive.yaml: |
+    topics:
+      - topic: "order-events-json"
+        role: "producer"
+        clientPrincipal: "quickstart-producer"
+        eventFilters:
+          - key: "OrderEvent"
+            value: "1.0"
+      - topic: "order-events-json"
+        role: "consumer"
+        clientPrincipal: "quickstart-consumer"
+        eventFilters:
+          - key: "OrderEvent"
+            value: "1.0"
+      - topic: "inventory-events-avro"
+        role: "producer"
+        clientPrincipal: "quickstart-producer"
+        eventFilters:
+          - key: "InventoryEvent"
+            value: "1.0"
+      - topic: "inventory-events-avro"
+        role: "consumer"
+        clientPrincipal: "quickstart-consumer"
+        eventFilters:
+          - key: "InventoryEvent"
+            value: "1.0"
+      - topic: "payment-events-protobuf"
+        role: "producer"
+        clientPrincipal: "quickstart-producer"
+        eventFilters:
+          - key: "PaymentEvent"
+            value: "1.0"
+      - topic: "payment-events-protobuf"
+        role: "consumer"
+        clientPrincipal: "quickstart-consumer"
+        eventFilters:
+          - key: "PaymentEvent"
+            value: "1.0"

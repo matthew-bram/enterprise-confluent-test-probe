@@ -1,0 +1,531 @@
+# =============================================================================
+# Rosetta Vault Mapping - AWS Lambda Example (Reference Only)
+# =============================================================================
+# This file is a REFERENCE for production AWS deployments.
+# It is NOT USED in the local quickstart (see local-vault-mapping.yaml instead).
+#
+# Purpose:
+#   - Document how to integrate with AWS Lambda-based vault services
+#   - Show advanced Rosetta features (request templates, transformations, metadata)
+#   - Provide production-ready examples for enterprise deployments
+#
+# When to Use This:
+#   - Production deployments with AWS Lambda vault functions
+#   - Enterprise environments with centralized credential management
+#   - Multi-tenant systems requiring dynamic credential fetching
+#
+# Configuration in application.conf:
+#   test-probe.services.vault {
+#     provider = "aws"
+#     rosetta-mapping-path = "classpath:rosetta/aws-vault-mapping.yaml"
+#     aws {
+#       lambda-arn = "arn:aws:lambda:us-east-1:123456789012:function:vault-credentials"
+#       region = "us-east-1"
+#       timeout = 10s
+#       retry-attempts = 3
+#       required-fields = ["clientId", "clientSecret"]
+#     }
+#   }
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Request Template (Vault Request Construction)
+# -----------------------------------------------------------------------------
+# The request template is a JSON structure sent to the AWS Lambda function.
+# It uses variable substitution to inject TopicDirective fields and metadata.
+#
+# Variable Types:
+#   {{field}}           : TopicDirective field (topic, role, clientPrincipal)
+#   {{$^path.to.field}} : Static config from application.conf (not implemented yet)
+#   {{'metadata-key'}}  : Dynamic metadata from TopicDirective.metadata
+#
+# How It Works:
+#   1. VaultService receives FetchCredentials(topicDirective) message
+#   2. Loads request-template from this file
+#   3. Substitutes variables with values from topicDirective
+#   4. Sends JSON request to AWS Lambda function
+#   5. Receives JSON response from Lambda
+#   6. Applies response mappings (see below) to extract credentials
+#
+# Example TopicDirective (from topic-directive.yaml):
+#   - topic: "order-events-json"
+#     role: "producer"
+#     clientPrincipal: "kafka-producer-123"
+#     eventFilters:
+#       - key: "OrderEvent"
+#         value: "1.0"
+#     metadata:
+#       serdes-type: "json"
+#       environment: "production"
+#       region: "us-east-1"
+#
+# Example Request Template Output (after substitution):
+#   {
+#     "oauth-id": "kafka-producer-123",
+#     "topic": "order-events-json",
+#     "role": "producer",
+#     "environment": "production"
+#   }
+
+request-template:
+  # OAuth client principal (identity for Kafka ACL authorization)
+  # Substituted from TopicDirective.clientPrincipal
+  # Example: "kafka-producer-123"
+  oauth-id: "{{clientPrincipal}}"
+
+  # Kafka topic name
+  # Substituted from TopicDirective.topic
+  # Example: "order-events-json"
+  topic: "{{topic}}"
+
+  # Producer or consumer role
+  # Substituted from TopicDirective.role
+  # Example: "producer"
+  role: "{{role}}"
+
+  # Deployment environment (from TopicDirective.metadata)
+  # Substituted from TopicDirective.metadata["environment"]
+  # Example: "production"
+  # Lambda uses this to return environment-specific credentials
+  environment: "{{'environment'}}"
+
+  # Example: Tenant ID (from application.conf)
+  # NOT IMPLEMENTED YET: Requires config path resolution
+  # tenant-id: "{{$^custom-fields.vault-requests.tenant-id}}"
+
+# -----------------------------------------------------------------------------
+# Response Mappings (Extract Credentials from Lambda Response)
+# -----------------------------------------------------------------------------
+# After receiving the Lambda response, Rosetta applies these mappings to
+# extract VaultCredentials fields using JSONPath expressions.
+#
+# Example Lambda Response:
+#   {
+#     "auth": {
+#       "credentials": {
+#         "client_id": "kafka-producer-abc123",
+#         "secret": "c3VwZXItc2VjcmV0LWtleQ=="  // base64-encoded
+#       },
+#       "oauth": {
+#         "token_endpoint": "https://oauth.company.com/token",
+#         "scope": "kafka.producer"
+#       }
+#     },
+#     "metadata": {
+#       "vault_version": "1.0",
+#       "issued_at": "2025-12-01T10:30:00Z",
+#       "expires_at": "2025-12-01T11:30:00Z"
+#     }
+#   }
+
+mappings:
+  # -------------------------------------------------------------------------
+  # Client Secret Mapping (with Base64 Decoding)
+  # -------------------------------------------------------------------------
+  # Extracts client secret and decodes from base64
+  #
+  # JSONPath: $.auth.credentials.secret
+  #   - Navigate to "auth" object
+  #   - Navigate to "credentials" object
+  #   - Extract "secret" field
+  #
+  # Transformations:
+  #   - type: base64Decode
+  #     Decodes base64-encoded secret to plaintext
+  #     Input:  "c3VwZXItc2VjcmV0LWtleQ=="
+  #     Output: "super-secret-key"
+  #
+  # Why Base64 Encoding in Vault?
+  #   - Prevents special characters from breaking JSON parsing
+  #   - Provides basic obfuscation (NOT encryption)
+  #   - Standard practice for transmitting binary data in JSON
+  #
+  # Security Note:
+  #   Base64 is NOT encryption! Always use HTTPS/TLS for vault requests.
+  #   For true encryption, use AWS KMS, Azure Key Vault, or HashiCorp Vault.
+  - targetField: clientSecret
+    sourcePath: $.auth.credentials.secret
+    transformations:
+      - type: base64Decode
+
+  # -------------------------------------------------------------------------
+  # Client ID Mapping (Direct Extraction)
+  # -------------------------------------------------------------------------
+  # Extracts OAuth client ID from Lambda response
+  #
+  # JSONPath: $.auth.credentials.client_id
+  #   - Navigate to "auth" object
+  #   - Navigate to "credentials" object
+  #   - Extract "client_id" field
+  #
+  # No transformations needed (already in correct format)
+  #
+  # Example:
+  #   Input:  {"auth": {"credentials": {"client_id": "kafka-producer-abc123"}}}
+  #   Output: VaultCredentials(clientId = "kafka-producer-abc123")
+  - targetField: clientId
+    sourcePath: $.auth.credentials.client_id
+
+  # -------------------------------------------------------------------------
+  # Token Endpoint Mapping (with Default)
+  # -------------------------------------------------------------------------
+  # Extracts OAuth token endpoint URL from Lambda response
+  # Falls back to default if not present
+  #
+  # JSONPath: $.auth.oauth.token_endpoint
+  #   - Navigate to "auth" object
+  #   - Navigate to "oauth" object
+  #   - Extract "token_endpoint" field
+  #
+  # Default Value: "https://oauth.example.com/token"
+  #   - Used if Lambda response doesn't include token_endpoint
+  #   - Allows partial responses from vault
+  #
+  # Why Store Token Endpoint in Vault?
+  #   - Environment-specific OAuth servers (dev, staging, prod)
+  #   - Multi-region deployments (us-east-1, eu-west-1)
+  #   - A/B testing different OAuth providers
+  #
+  # Note: This field is NOT part of VaultCredentials model (yet)
+  #       This is a demonstration of how to map additional fields
+  #       In production, add to VaultCredentials case class or use metadata
+  - targetField: tokenEndpoint
+    sourcePath: $.auth.oauth.token_endpoint
+    defaultValue: "https://oauth.example.com/token"
+
+# =============================================================================
+# SUPPORTED TRANSFORMATIONS
+# =============================================================================
+# Rosetta supports multiple transformation types for mapping vault responses.
+# Transformations are applied in order (chained transformations supported).
+#
+# Available Transformations:
+#
+# 1. base64Decode - Decodes base64-encoded strings
+#    Example:
+#      Input:  "SGVsbG8gV29ybGQ="
+#      Output: "Hello World"
+#    Usage:
+#      transformations:
+#        - type: base64Decode
+#
+# 2. base64Encode - Encodes strings to base64
+#    Example:
+#      Input:  "Hello World"
+#      Output: "SGVsbG8gV29ybGQ="
+#    Usage:
+#      transformations:
+#        - type: base64Encode
+#
+# 3. toUpper - Converts string to uppercase
+#    Example:
+#      Input:  "producer"
+#      Output: "PRODUCER"
+#    Usage:
+#      transformations:
+#        - type: toUpper
+#
+# 4. toLower - Converts string to lowercase
+#    Example:
+#      Input:  "CONSUMER"
+#      Output: "consumer"
+#    Usage:
+#      transformations:
+#        - type: toLower
+#
+# 5. prefix - Prepends a value to the string
+#    Example:
+#      Input:  "client-123"
+#      Output: "kafka-client-123"
+#    Usage:
+#      transformations:
+#        - type: prefix
+#          value: "kafka-"
+#
+# 6. suffix - Appends a value to the string
+#    Example:
+#      Input:  "client-123"
+#      Output: "client-123-prod"
+#    Usage:
+#      transformations:
+#        - type: suffix
+#          value: "-prod"
+#
+# Chained Transformations (Applied in Order):
+#   mappings:
+#     - targetField: clientId
+#       sourcePath: $.credentials.raw_id
+#       transformations:
+#         - type: base64Decode    # First: Decode base64
+#         - type: prefix          # Second: Add prefix
+#           value: "kafka-"
+#         - type: toUpper         # Third: Convert to uppercase
+#
+#   Example:
+#     Input:  "Y2xpZW50LTEyMw==" (base64 for "client-123")
+#     After base64Decode: "client-123"
+#     After prefix: "kafka-client-123"
+#     After toUpper: "KAFKA-CLIENT-123"
+#     Output: "KAFKA-CLIENT-123"
+
+# =============================================================================
+# JSONPATH EXPRESSION EXAMPLES
+# =============================================================================
+# JSONPath is a query language for JSON (similar to XPath for XML).
+# Test-Probe uses Jayway JsonPath library for parsing vault responses.
+#
+# Basic JSONPath Syntax:
+#   $                 : Root of JSON document
+#   .field            : Access object field by name
+#   ['field-name']    : Access field with special characters (hyphens, spaces)
+#   [0]               : Access array element by index
+#   [*]               : Access all array elements (wildcard)
+#   ..field           : Recursive descent (search all levels for "field")
+#   [?(@.price < 10)] : Filter expressions (filter array elements)
+#
+# Example Vault Response (Complex Structure):
+#   {
+#     "data": {
+#       "credentials": {
+#         "kafka": {
+#           "environments": {
+#             "production": {
+#               "oauth": {
+#                 "client_id": "prod-client-123",
+#                 "client_secret": "cHJvZC1zZWNyZXQ="
+#               }
+#             }
+#           }
+#         }
+#       }
+#     }
+#   }
+#
+# JSONPath Examples:
+#   $.data.credentials.kafka.environments.production.oauth.client_id
+#     -> "prod-client-123"
+#
+#   $.data.credentials.kafka.environments.production.oauth.client_secret
+#     -> "cHJvZC1zZWNyZXQ="
+#
+# Example: Array Access
+#   {
+#     "topics": [
+#       {"name": "orders", "role": "producer"},
+#       {"name": "payments", "role": "consumer"}
+#     ]
+#   }
+#
+# JSONPath Examples:
+#   $.topics[0].name           -> "orders"
+#   $.topics[1].role           -> "consumer"
+#   $.topics[*].name           -> ["orders", "payments"]
+#   $.topics[?(@.role == 'producer')].name -> ["orders"]
+
+# =============================================================================
+# REAL-WORLD AWS LAMBDA VAULT EXAMPLES
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Example 1: Simple AWS Secrets Manager Response
+# -----------------------------------------------------------------------------
+# Lambda returns credentials from AWS Secrets Manager (flat structure)
+#
+# Lambda Response:
+#   {
+#     "client_id": "kafka-producer-xyz",
+#     "client_secret": "bXktc2VjcmV0LWtleQ==",
+#     "token_endpoint": "https://oauth.company.com/token"
+#   }
+#
+# Mappings:
+#   mappings:
+#     - targetField: clientId
+#       sourcePath: $.client_id
+#     - targetField: clientSecret
+#       sourcePath: $.client_secret
+#       transformations:
+#         - type: base64Decode
+#     - targetField: tokenEndpoint
+#       sourcePath: $.token_endpoint
+
+# -----------------------------------------------------------------------------
+# Example 2: HashiCorp Vault Response (Deep Nesting)
+# -----------------------------------------------------------------------------
+# Lambda fetches from HashiCorp Vault (6 levels of nesting)
+#
+# Lambda Response:
+#   {
+#     "data": {
+#       "data": {
+#         "kafka": {
+#           "production": {
+#             "credentials": {
+#               "producer": {
+#                 "oauth_client_id": "prod-kafka-producer",
+#                 "oauth_client_secret": "cHJvZC1zZWNyZXQ=",
+#                 "scope": "kafka.write",
+#                 "token_url": "https://oauth.prod.company.com/token"
+#               }
+#             }
+#           }
+#         }
+#       }
+#     }
+#   }
+#
+# Mappings:
+#   mappings:
+#     - targetField: clientId
+#       sourcePath: $.data.data.kafka.production.credentials.producer.oauth_client_id
+#     - targetField: clientSecret
+#       sourcePath: $.data.data.kafka.production.credentials.producer.oauth_client_secret
+#       transformations:
+#         - type: base64Decode
+
+# -----------------------------------------------------------------------------
+# Example 3: Multi-Tenant Vault Response
+# -----------------------------------------------------------------------------
+# Lambda returns credentials for multiple tenants/environments
+#
+# Lambda Response:
+#   {
+#     "tenants": {
+#       "company-a": {
+#         "production": {
+#           "client_id": "company-a-prod-client",
+#           "client_secret": "Y29tcGFueS1hLXNlY3JldA=="
+#         }
+#       },
+#       "company-b": {
+#         "production": {
+#           "client_id": "company-b-prod-client",
+#           "client_secret": "Y29tcGFueS1iLXNlY3JldA=="
+#         }
+#       }
+#     }
+#   }
+#
+# Request Template (with tenant metadata):
+#   request-template:
+#     oauth-id: "{{clientPrincipal}}"
+#     topic: "{{topic}}"
+#     tenant: "{{'tenant-id'}}"        # From TopicDirective.metadata
+#     environment: "{{'environment'}}" # From TopicDirective.metadata
+#
+# Mappings (using tenant variable - requires dynamic JSONPath, not implemented):
+#   mappings:
+#     - targetField: clientId
+#       sourcePath: $.tenants['{{'tenant-id'}}']['{{'environment'}}'].client_id
+#     - targetField: clientSecret
+#       sourcePath: $.tenants['{{'tenant-id'}}']['{{'environment'}}'].client_secret
+#       transformations:
+#         - type: base64Decode
+#
+# Note: Dynamic JSONPath with variables is NOT implemented yet.
+#       For multi-tenant, use separate Lambda functions per tenant.
+
+# =============================================================================
+# AWS LAMBDA IMPLEMENTATION EXAMPLE
+# =============================================================================
+# Example Lambda function (Python) that integrates with AWS Secrets Manager:
+#
+# import json
+# import boto3
+# import base64
+#
+# secrets_client = boto3.client('secretsmanager')
+#
+# def lambda_handler(event, context):
+#     """
+#     Fetch Kafka OAuth credentials from AWS Secrets Manager
+#
+#     Input (event):
+#       {
+#         "oauth-id": "kafka-producer-123",
+#         "topic": "order-events-json",
+#         "role": "producer",
+#         "environment": "production"
+#       }
+#
+#     Output:
+#       {
+#         "auth": {
+#           "credentials": {
+#             "client_id": "kafka-producer-abc123",
+#             "secret": "c3VwZXItc2VjcmV0LWtleQ=="
+#           },
+#           "oauth": {
+#             "token_endpoint": "https://oauth.company.com/token"
+#           }
+#         }
+#       }
+#     """
+#     # Extract request parameters
+#     oauth_id = event['oauth-id']
+#     environment = event['environment']
+#
+#     # Construct Secrets Manager secret name
+#     secret_name = f"kafka/{environment}/{oauth_id}"
+#
+#     # Fetch secret from Secrets Manager
+#     response = secrets_client.get_secret_value(SecretId=secret_name)
+#     secret = json.loads(response['SecretString'])
+#
+#     # Base64-encode client secret (optional, for security)
+#     client_secret_b64 = base64.b64encode(secret['client_secret'].encode()).decode()
+#
+#     # Return response in format expected by Rosetta mappings
+#     return {
+#         'statusCode': 200,
+#         'body': json.dumps({
+#             'auth': {
+#                 'credentials': {
+#                     'client_id': secret['client_id'],
+#                     'secret': client_secret_b64
+#                 },
+#                 'oauth': {
+#                     'token_endpoint': secret['token_endpoint']
+#                 }
+#             }
+#         })
+#     }
+#
+# IAM Permissions Required:
+#   {
+#     "Effect": "Allow",
+#     "Action": [
+#       "secretsmanager:GetSecretValue"
+#     ],
+#     "Resource": "arn:aws:secretsmanager:*:*:secret:kafka/*"
+#   }
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Q: How do I test request templates without deploying to AWS?
+# A: Use LocalStack (AWS emulation) or mock the Lambda function in unit tests
+
+# Q: What if the Lambda function returns an error?
+# A: VaultService retries up to retry-attempts times, then throws VaultException
+
+# Q: Can I use different vault functions for different topics?
+# A: Not currently. All topics use the same Lambda ARN from application.conf
+#    Workaround: Lambda can route to different backends based on request metadata
+
+# Q: How do I handle vault credential rotation?
+# A: Credentials are fetched per-request (no caching)
+#    When credentials rotate in vault, next request gets new credentials
+
+# Q: What if JSONPath expression is invalid?
+# A: RosettaMapper throws MappingException with error details
+#    Enable DEBUG logging to see vault response JSON for debugging
+
+# Q: Can I add custom transformations?
+# A: Yes, implement new transformation in RosettaMapper.scala
+#    Add to TransformationType enum and match statement
+
+# Q: How do I handle multiple environments (dev, staging, prod)?
+# A: Use environment metadata in request-template
+#    Lambda routes to environment-specific secrets based on environment field

@@ -1,0 +1,81 @@
+```mermaid
+graph TB
+    %% External Systems
+    Vault[(Vault<br/>AWS Secrets Manager<br/>HashiCorp Vault<br/>Azure Key Vault)]
+
+    %% Configuration
+    Config[application.conf<br/>rosetta-mapping-path]
+    MappingFile[vault-credentials-mapping.yaml<br/>JSONPath expressions<br/>Transformations]
+
+    %% Vault Service Layer
+    subgraph "Vault Service (test-probe-services)"
+        AwsVaultService[AwsVaultService]
+        LocalVaultService[LocalVaultService]
+    end
+
+    %% Rosetta Mapping Layer (Generic)
+    subgraph "Rosetta Mapper (test-probe-common/rosetta)"
+        RosettaConfig[RosettaConfig<br/>Mapping configuration<br/>YAML/JSON parser]
+        RosettaMapper[RosettaMapper<br/>JSONPath resolver<br/>Transformation engine]
+        RosettaTransformations[RosettaTransformations<br/>base64Decode, concat<br/>prefix, suffix, etc.]
+    end
+
+    %% Vault-Specific Implementations
+    subgraph "Vault Services (test-probe-services/vault)"
+        VaultCredentialsMapper[VaultCredentialsMapper<br/>Maps to VaultCredentials]
+        JaasConfigBuilder[JaasConfigBuilder<br/>Constructs jaasConfig<br/>from credentials + OAuth config]
+        VaultCredentials[VaultCredentials<br/>topic, role<br/>clientId, clientSecret]
+    end
+
+    %% Models
+    subgraph "Data Models (test-probe-common)"
+        SecurityDirective[SecurityDirective<br/>topic, role<br/>clientSecret, jaasConfig]
+    end
+
+    %% Actor Layer
+    VaultActor[VaultActor<br/>Coordinates vault fetch]
+
+    %% Flow Connections
+    Config -->|"loads path"| MappingFile
+    MappingFile -->|"parsed by"| RosettaConfig
+
+    Vault -->|"raw JSON"| AwsVaultService
+    Vault -->|"raw JSON"| LocalVaultService
+
+    AwsVaultService -->|"vault JSON"| VaultCredentialsMapper
+    LocalVaultService -->|"vault JSON"| VaultCredentialsMapper
+
+    RosettaConfig -->|"config"| VaultCredentialsMapper
+    VaultCredentialsMapper -->|"uses"| RosettaMapper
+    RosettaMapper -->|"applies"| RosettaTransformations
+
+    VaultCredentialsMapper -->|"produces"| VaultCredentials
+
+    VaultCredentials -->|"input to"| JaasConfigBuilder
+    Config -->|"OAuth endpoint<br/>client scope"| JaasConfigBuilder
+
+    JaasConfigBuilder -->|"constructs jaasConfig"| SecurityDirective
+    VaultCredentials -->|"topic, role, clientSecret"| SecurityDirective
+
+    AwsVaultService -->|"returns"| SecurityDirective
+    LocalVaultService -->|"returns"| SecurityDirective
+
+    SecurityDirective -->|"sent to"| VaultActor
+
+    %% Styling
+    classDef externalSystem fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef config fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef rosetta fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    classDef model fill:#f8bbd0,stroke:#c2185b,stroke-width:2px
+    classDef service fill:#d1c4e9,stroke:#512da8,stroke-width:2px
+    classDef actor fill:#ffccbc,stroke:#d84315,stroke-width:2px
+    classDef vaultServices fill:#b39ddb,stroke:#4527a0,stroke-width:2px
+
+    class Vault externalSystem
+    class Config,MappingFile config
+    class RosettaConfig,RosettaMapper,RosettaTransformations rosetta
+    class SecurityDirective model
+    class AwsVaultService,LocalVaultService service
+    class VaultCredentialsMapper,JaasConfigBuilder,VaultCredentials vaultServices
+    class VaultActor actor
+```

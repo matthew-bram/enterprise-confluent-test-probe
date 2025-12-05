@@ -1,0 +1,52 @@
+# Example application.conf showing static config values
+# for vault request body templates
+
+test-probe.services.vault {
+  provider = "azure"
+
+  azure {
+    function-url = "https://vault.azure.com/api/credentials"
+    function-key = ${?AZURE_VAULT_KEY}  # From environment
+    timeout = 10s
+    retry-attempts = 3
+    required-fields = ["clientSecret"]  # Only secret required
+  }
+
+  oauth {
+    token-endpoint = "https://login.microsoftonline.com/tenant-id/oauth2/v2.0/token"
+    scope = "https://kafka.example.com/.default"
+  }
+
+  rosetta-mapping-path = "classpath:rosetta/mf-team-vault.yaml"
+}
+
+# Custom fields referenced in Rosetta templates via {{$^...}}
+custom-fields {
+  vault-requests {
+    # Global static values
+    environment = "production"
+
+    # MF Team specific
+    mf-team {
+      client-app-id = "MF-PROD-CONSUMER-APP-123"
+      org-id = "ORG-456"
+    }
+
+    # Team A specific
+    team-a {
+      id = "TEAM-A-789"
+      department = "Engineering"
+    }
+  }
+}
+
+# Example: Team A consuming from 3 different topics
+# They would configure 3 different Rosetta configs:
+
+# Topic 1 & 2: MF teams - use mf-team-complex-vault.yaml
+# - References: {{$^custom-fields.vault-requests.mf-team.client-app-id}}
+# - Dynamic metadata: {{'blood-type'}} passed in TopicDirective
+
+# Topic 3: Hip team - use hip-team-simple-vault.yaml
+# - Only needs {{clientPrincipal}}
+# - No static config or metadata required

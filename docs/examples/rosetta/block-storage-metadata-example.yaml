@@ -1,0 +1,42 @@
+# Example: Metadata YAML loaded from S3/Azure Block Storage
+# during BlockStorageService loading phase
+#
+# This metadata gets merged into TopicDirective.metadata Map
+# and can be referenced in Rosetta templates as {{'key'}}
+
+test-metadata:
+  # Test run context
+  test-run-id: "run-2025-01-22-12345"
+  correlation-id: "corr-abc-123-xyz"
+
+  # MF team's required "blood type"
+  blood-type: "O-negative"
+
+  # Additional custom fields
+  environment: "staging"
+  team-name: "Team A"
+
+# How this flows through the system:
+#
+# 1. BlockStorageService loads this YAML from S3/Azure
+# 2. Extracts the metadata section
+# 3. Creates TopicDirective with metadata Map:
+#    TopicDirective(
+#      topic = "mf-team-1-topic",
+#      role = "CONSUMER",
+#      clientPrincipal = "team-a-principal",
+#      eventFilters = List.empty,
+#      metadata = Map(
+#        "test-run-id" -> "run-2025-01-22-12345",
+#        "correlation-id" -> "corr-abc-123-xyz",
+#        "blood-type" -> "O-negative",
+#        "environment" -> "staging",
+#        "team-name" -> "Team A"
+#      )
+#    )
+# 4. VaultService uses RequestBodyBuilder to substitute variables:
+#    - {{topic}} -> "mf-team-1-topic"
+#    - {{clientPrincipal}} -> "team-a-principal"
+#    - {{$^request-params.vault-requests.mf-team.client-app-id}} -> "MF-PROD-CONSUMER-APP-123"
+#    - {{'blood-type'}} -> "O-negative"
+# 5. Resulting request body sent to vault

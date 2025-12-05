@@ -1,0 +1,53 @@
+# =============================================================================
+# Test-Probe Java Quickstart - Helm Values
+# =============================================================================
+# Configure the Java Quickstart deployment for Kubernetes.
+#
+# Usage:
+#   helm install quickstart ./kubernetes/helm/java-quickstart
+#   helm install quickstart ./kubernetes/helm/java-quickstart -f custom-values.yaml
+
+# Application settings
+app:
+  # Docker image configuration
+  image:
+    repository: test-probe/java-quickstart
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  # Replica count (single instance for testing)
+  replicas: 1
+
+  # Resource limits
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8080
+
+# Kafka configuration
+# These connect to in-cluster Kafka services
+kafka:
+  bootstrapServers: "kafka:9092"
+  schemaRegistryUrl: "http://schema-registry:8081"
+
+# Namespace to deploy into
+namespace: kafka
+
+# ConfigMap settings
+configMap:
+  # Name of the ConfigMap containing application.conf
+  name: quickstart-config
+
+# Secret settings (optional)
+secret:
+  # Set to true to create a secret for credentials
+  create: false
+  name: quickstart-secrets

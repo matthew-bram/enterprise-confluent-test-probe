@@ -1,0 +1,17 @@
+{{- if .Values.schemaRegistry.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: schema-registry
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: schema-registry
+spec:
+  type: {{ .Values.schemaRegistry.service.type }}
+  ports:
+  - port: {{ .Values.schemaRegistry.service.port }}
+    name: http
+    targetPort: 8081
+  selector:
+    app: schema-registry
+{{- end }}

@@ -1,0 +1,44 @@
+{{- $fullName := printf "%s-quickstart" .Release.Name -}}
+========================================
+Test-Probe Java Quickstart
+========================================
+
+Your Java Quickstart application has been deployed!
+
+Release: {{ .Release.Name }}
+Namespace: {{ .Values.namespace }}
+
+To access your application:
+
+1. Check the deployment status:
+   kubectl get pods -n {{ .Values.namespace }} -l release={{ .Release.Name }}
+
+2. Wait for the pod to be ready:
+   kubectl wait --for=condition=ready pod -l release={{ .Release.Name }} -n {{ .Values.namespace }} --timeout=120s
+
+3. View application logs:
+   kubectl logs -f -l release={{ .Release.Name }} -n {{ .Values.namespace }}
+
+4. Port-forward to access services locally:
+   kubectl port-forward svc/kafka 9092:9092 -n {{ .Values.namespace }} &
+   kubectl port-forward svc/schema-registry 8081:8081 -n {{ .Values.namespace }} &
+
+5. Run tests:
+   cd examples/java-quickstart
+   ./scripts/run-tests.sh
+
+Configuration:
+  - Kafka: {{ .Values.kafka.bootstrapServers }}
+  - Schema Registry: {{ .Values.kafka.schemaRegistryUrl }}
+  - Replicas: {{ .Values.app.replicas }}
+
+Troubleshooting:
+  - Describe pod: kubectl describe pod -l release={{ .Release.Name }} -n {{ .Values.namespace }}
+  - View logs: kubectl logs -l release={{ .Release.Name }} -n {{ .Values.namespace }}
+  - Get events: kubectl get events -n {{ .Values.namespace }} --sort-by='.lastTimestamp'
+
+Cleanup:
+  helm uninstall {{ .Release.Name }} -n {{ .Values.namespace }}
+
+For more information, see:
+  kubernetes/README.md

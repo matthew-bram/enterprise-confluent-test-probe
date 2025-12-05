@@ -1,0 +1,18 @@
+# =============================================================================
+# Test-Probe Java Quickstart - Service
+# =============================================================================
+# Raw Kubernetes manifest - alternative to Helm
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-quickstart
+  namespace: quickstart
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: java-quickstart

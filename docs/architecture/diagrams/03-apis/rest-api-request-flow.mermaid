@@ -1,0 +1,107 @@
+```mermaid
+sequenceDiagram
+    participant Client
+    participant PekkoHTTP as Pekko HTTP
+    participant RestRoutes
+    participant RestValidation
+    participant RestModelConversions as Anti-Corruption Layer
+    participant ServiceInterfaceFunctions as Service Functions
+    participant CircuitBreaker as Circuit Breaker
+    participant Actor as GuardianActor
+
+    %% Successful Request Flow
+    Note over Client,Actor: Successful Request Flow (POST /api/v1/test/start)
+
+    Client->>PekkoHTTP: HTTP POST /api/v1/test/start<br/>(JSON body)
+    PekkoHTTP->>PekkoHTTP: Route Matching
+    PekkoHTTP->>PekkoHTTP: JSON Deserialization<br/>(Spray JSON)
+    PekkoHTTP->>RestRoutes: Route Handler<br/>(RestStartTestRequest)
+
+    RestRoutes->>RestValidation: validateStartRequest(request)
+    RestValidation->>RestValidation: Check block-storage-path<br/>(must start with s3://)
+    RestValidation->>RestValidation: Check test-type<br/>(not empty if provided)
+    RestValidation-->>RestRoutes: Right(()) ✓ Valid
+
+    RestRoutes->>RestModelConversions: toCore(request)
+    RestModelConversions-->>RestRoutes: (testId, bucket, testType)
+
+    RestRoutes->>ServiceInterfaceFunctions: startTest(testId, bucket, testType)
+    ServiceInterfaceFunctions->>CircuitBreaker: withCircuitBreaker { ... }
+    CircuitBreaker->>CircuitBreaker: Check State<br/>(Closed/Open/Half-Open)
+
+    alt Circuit Breaker CLOSED
+        CircuitBreaker->>Actor: ask(StartTest)
+        Note over Actor: Process command<br/>(FSM state transition)
+        Actor-->>CircuitBreaker: StartTestResponse
+        CircuitBreaker-->>ServiceInterfaceFunctions: Future[StartTestResponse]
+        ServiceInterfaceFunctions-->>RestRoutes: Future[StartTestResponse]
+
+        RestRoutes->>RestModelConversions: toRest(response)
+        RestModelConversions-->>RestRoutes: RestStartTestResponse
+
+        RestRoutes->>PekkoHTTP: complete(202 Accepted, response)
+        PekkoHTTP->>PekkoHTTP: JSON Serialization<br/>(Spray JSON)
+        PekkoHTTP-->>Client: HTTP 202 Accepted<br/>(JSON response)
+    end
+
+    %% Error Flow: Validation Failure
+    Note over Client,Actor: Error Flow: Validation Failure
+
+    Client->>PekkoHTTP: HTTP POST /api/v1/test/start<br/>(empty block-storage-path)
+    PekkoHTTP->>RestRoutes: Route Handler
+
+    RestRoutes->>RestValidation: validateStartRequest(request)
+    RestValidation->>RestValidation: Check block-storage-path
+    RestValidation-->>RestRoutes: Left("block-storage-path cannot be empty") ✗
+
+    RestRoutes->>RestRoutes: RestErrorResponse.validationError(...)
+    RestRoutes->>PekkoHTTP: complete(400 Bad Request, error)
+    PekkoHTTP-->>Client: HTTP 400 Bad Request<br/>(validation error)
+
+    Note over RestRoutes,Actor: ⚡ No actor communication<br/>(fail fast in <1ms)
+
+    %% Error Flow: Actor Timeout
+    Note over Client,Actor: Error Flow: Actor Timeout (25s)
+
+    Client->>PekkoHTTP: HTTP POST /api/v1/test/start
+    PekkoHTTP->>RestRoutes: Route Handler
+    RestRoutes->>RestValidation: validateStartRequest(request)
+    RestValidation-->>RestRoutes: Right(()) ✓
+
+    RestRoutes->>ServiceInterfaceFunctions: startTest(...)
+    ServiceInterfaceFunctions->>CircuitBreaker: withCircuitBreaker { ... }
+    CircuitBreaker->>Actor: ask(StartTest)
+
+    Note over Actor: Actor processing slow<br/>(>25 seconds)
+
+    Note over CircuitBreaker: ⏰ Ask timeout (25s)
+    CircuitBreaker-->>ServiceInterfaceFunctions: Future.failed(ServiceTimeoutException)
+    ServiceInterfaceFunctions-->>RestRoutes: Future.failed(ServiceTimeoutException)
+
+    RestRoutes->>RestRoutes: RestErrorResponse.actorTimeout(...)
+    RestRoutes->>PekkoHTTP: complete(504 Gateway Timeout, error)
+    PekkoHTTP-->>Client: HTTP 504 Gateway Timeout<br/>(actor timeout error)
+
+    %% Error Flow: Circuit Breaker Open
+    Note over Client,Actor: Error Flow: Circuit Breaker Open
+
+    Client->>PekkoHTTP: HTTP POST /api/v1/test/start
+    PekkoHTTP->>RestRoutes: Route Handler
+    RestRoutes->>RestValidation: validateStartRequest(request)
+    RestValidation-->>RestRoutes: Right(()) ✓
+
+    RestRoutes->>ServiceInterfaceFunctions: startTest(...)
+    ServiceInterfaceFunctions->>CircuitBreaker: withCircuitBreaker { ... }
+    CircuitBreaker->>CircuitBreaker: Check State = OPEN<br/>(5+ consecutive failures)
+
+    Note over CircuitBreaker: ⚡ Fail fast<br/>(circuit breaker open)
+
+    CircuitBreaker-->>ServiceInterfaceFunctions: throw ServiceUnavailableException
+    ServiceInterfaceFunctions-->>RestRoutes: Future.failed(ServiceUnavailableException)
+
+    RestRoutes->>RestRoutes: RestErrorResponse.serviceUnavailable(..., "30s")
+    RestRoutes->>PekkoHTTP: complete(503 Service Unavailable, error)
+    PekkoHTTP-->>Client: HTTP 503 Service Unavailable<br/>(retryAfter: "30s")
+
+    Note over RestRoutes,Actor: ⚡ No actor communication<br/>(fail fast in <1ms)
+```

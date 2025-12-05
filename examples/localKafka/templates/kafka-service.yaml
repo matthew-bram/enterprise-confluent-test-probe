@@ -1,0 +1,40 @@
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: kafka
+spec:
+  clusterIP: None
+  ports:
+  - port: 9092
+    name: kafka
+    targetPort: 9092
+  - port: 9093
+    name: controller
+    targetPort: 9093
+  selector:
+    app: kafka
+---
+# Regular service for client connections
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: kafka
+spec:
+  type: {{ .Values.kafka.service.type }}
+  ports:
+  - port: {{ .Values.kafka.service.port }}
+    name: kafka
+    targetPort: 9092
+    {{- if and (eq .Values.kafka.service.type "NodePort") .Values.kafka.service.nodePort }}
+    nodePort: {{ .Values.kafka.service.nodePort }}
+    {{- end }}
+  selector:
+    app: kafka

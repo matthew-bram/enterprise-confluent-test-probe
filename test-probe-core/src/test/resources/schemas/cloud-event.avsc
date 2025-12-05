@@ -1,0 +1,61 @@
+{
+  "type": "record",
+  "name": "CloudEvent",
+  "namespace": "io.distia.probe.core.pubsub.models",
+  "doc": "CloudEvents 1.0 specification for Kafka message keys",
+  "fields": [
+    {
+      "name": "id",
+      "type": "string",
+      "doc": "Unique event identifier (UUID)"
+    },
+    {
+      "name": "source",
+      "type": "string",
+      "doc": "Event source (e.g., kafka-testing-probe)"
+    },
+    {
+      "name": "specversion",
+      "type": "string",
+      "default": "1.0",
+      "doc": "CloudEvents specification version"
+    },
+    {
+      "name": "type",
+      "type": "string",
+      "doc": "Event type (e.g., user.created)"
+    },
+    {
+      "name": "time",
+      "type": "string",
+      "doc": "Event timestamp in ISO 8601 format (per CloudEvents spec)"
+    },
+    {
+      "name": "subject",
+      "type": "string",
+      "doc": "Event subject (e.g., user/123)"
+    },
+    {
+      "name": "datacontenttype",
+      "type": "string",
+      "default": "application/octet-stream",
+      "doc": "Payload MIME type"
+    },
+    {
+      "name": "correlationid",
+      "type": "string",
+      "doc": "Correlation ID for event tracking"
+    },
+    {
+      "name": "payloadversion",
+      "type": "string",
+      "doc": "Payload schema version (e.g., v1, v2)"
+    },
+    {
+      "name": "time_epoch_micro_source",
+      "type": ["null", "long"],
+      "default": null,
+      "doc": "Optional source timestamp in microseconds"
+    }
+  ]
+}

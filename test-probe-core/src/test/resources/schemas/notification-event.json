@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "NotificationEvent",
+  "type": "object",
+  "javaType": "com.fake.company.tests.NotificationEvent",
+  "properties": {
+    "eventType": {
+      "type": "string"
+    },
+    "eventVersion": {
+      "type": "string"
+    },
+    "eventTestId": {
+      "type": "string"
+    },
+    "notificationId": {
+      "type": "string"
+    },
+    "userId": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "integer"
+    }
+  },
+  "required": ["eventType", "eventVersion", "eventTestId", "notificationId", "userId", "message", "channel", "timestamp"],
+  "additionalProperties": false
+}

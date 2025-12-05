@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "ShipmentEvent",
+  "namespace": "com.fake.company.tests",
+  "doc": "Shipment event schema for Avro integration testing. Used by Java teams as reference implementation.",
+  "fields": [
+    {"name": "eventType", "type": "string", "default": "ShipmentEvent", "doc": "Event type discriminator"},
+    {"name": "eventVersion", "type": "string", "default": "v1", "doc": "Event version (e.g., v1, v2)"},
+    {"name": "eventTestId", "type": "string", "doc": "Human-readable test identifier"},
+    {"name": "shipmentId", "type": "string", "doc": "Unique shipment identifier"},
+    {"name": "orderId", "type": "string", "doc": "Associated order identifier"},
+    {"name": "carrier", "type": "string", "doc": "Shipping carrier (UPS, FedEx, USPS, etc.)"},
+    {"name": "trackingNumber", "type": "string", "doc": "Carrier tracking number"},
+    {"name": "status", "type": "string", "doc": "Shipment status (shipped, in_transit, delivered, etc.)"},
+    {"name": "timestamp", "type": "long", "doc": "Event timestamp in epoch millis"}
+  ]
+}

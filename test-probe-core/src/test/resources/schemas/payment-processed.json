@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft/2020-12/schema#",
+  "title": "PaymentProcessed",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "eventType": {
+      "type": "string"
+    },
+    "paymentId": {
+      "type": "string"
+    },
+    "orderId": {
+      "type": "string"
+    },
+    "amount": {
+      "type": "number"
+    },
+    "currency": {
+      "type": "string"
+    },
+    "paymentMethod": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "integer"
+    }
+  },
+  "required": ["orderId", "amount"]
+}

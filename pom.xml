@@ -1,0 +1,754 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.distia.probe</groupId>
+    <artifactId>test-probe-parent</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Test Probe - Parent</name>
+    <description>Parent POM for Testing Probe</description>
+
+    <modules>
+        <module>test-probe-common</module>
+        <module>test-probe-core</module>
+        <module>test-probe-java-api</module>
+        <module>test-probe-services</module>
+        <module>test-probe-interfaces</module>
+        <module>test-probe</module>
+    </modules>
+
+    <properties>
+        <!-- Build Properties -->
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Test Execution Control -->
+        <skipUnitTests>false</skipUnitTests>
+        <skipComponentTests>false</skipComponentTests>
+
+        <!-- Cucumber Parallel Execution Control -->
+        <cucumber.parallel.enabled>false</cucumber.parallel.enabled>
+        <cucumber.parallel.threads>1</cucumber.parallel.threads>
+
+        <!-- Scala Properties -->
+        <scala.version>3.3.6</scala.version>
+        <scala.binary.version>3</scala.binary.version>
+
+        <!-- Apache Pekko (Akka successor) -->
+        <pekko.version>1.2.1</pekko.version>
+        <pekko.http.version>1.1.0</pekko.http.version>
+        <pekko.connectors.kafka.version>1.1.0</pekko.connectors.kafka.version>
+
+        <!-- Kafka & Confluent -->
+        <kafka.version>3.8.1</kafka.version>
+        <confluent.version>8.1.0</confluent.version>
+
+        <!-- Cloud Provider SDKs -->
+        <aws.sdk.version>2.36.3</aws.sdk.version>
+        <azure.storage.blob.version>12.31.2</azure.storage.blob.version>
+        <gcp.storage.version>2.45.0</gcp.storage.version>
+
+        <!-- JSON/YAML Libraries -->
+        <circe.version>0.14.10</circe.version>
+        <circe.yaml.version>0.15.3</circe.yaml.version>
+        <jackson.version>2.16.2</jackson.version>
+        <snakeyaml.version>2.3</snakeyaml.version>
+
+
+        <!-- Configuration -->
+        <config.version>1.4.3</config.version>
+
+        <!-- Testing Frameworks -->
+        <cucumber.version>7.20.1</cucumber.version>
+        <cucumber.scala.version>8.25.1</cucumber.scala.version>
+
+        <!-- Utilities -->
+        <jimfs.version>1.3.0</jimfs.version>
+        <commons.io.version>2.20.0</commons.io.version>
+        <commons.compress.version>1.27.1</commons.compress.version>
+        <commons.lang3.version>3.14.0</commons.lang3.version>
+        <guava.version>33.3.1-jre</guava.version>
+
+        <!-- Logging -->
+        <logback.version>1.5.12</logback.version>
+
+        <!-- Observability -->
+        <opentelemetry.version>1.44.1</opentelemetry.version>
+
+        <!-- Test Dependencies -->
+        <scalatest.version>3.2.19</scalatest.version>
+        <testcontainers.version>1.20.4</testcontainers.version>
+        <fake.gcs.server.version>0.1.0</fake.gcs.server.version>
+        <localstack.utils.version>0.2.20</localstack.utils.version>
+        <mockito.version>5.14.2</mockito.version>
+        <wiremock.version>3.9.2</wiremock.version>
+
+        <!-- Maven Plugin Versions -->
+        <scala.maven.plugin.version>4.9.2</scala.maven.plugin.version>
+        <maven.shade.plugin.version>3.5.1</maven.shade.plugin.version>
+        <maven.surefire.plugin.version>3.2.2</maven.surefire.plugin.version>
+        <maven.failsafe.plugin.version>3.2.2</maven.failsafe.plugin.version>
+        <scalatest.maven.plugin.version>2.2.0</scalatest.maven.plugin.version>
+        <scoverage.plugin.version>2.1.0</scoverage.plugin.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ========================================== -->
+            <!-- Scala Standard Library                    -->
+            <!-- ========================================== -->
+
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala3-library_3</artifactId>
+                <version>${scala.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Apache Pekko Actor System                 -->
+            <!-- ========================================== -->
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-actor-typed_${scala.binary.version}</artifactId>
+                <version>${pekko.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-stream_${scala.binary.version}</artifactId>
+                <version>${pekko.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-cluster-typed_${scala.binary.version}</artifactId>
+                <version>${pekko.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-slf4j_${scala.binary.version}</artifactId>
+                <version>${pekko.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Apache Pekko HTTP                         -->
+            <!-- ========================================== -->
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-http_${scala.binary.version}</artifactId>
+                <version>${pekko.http.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-http-spray-json_${scala.binary.version}</artifactId>
+                <version>${pekko.http.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Kafka & Confluent                         -->
+            <!-- ========================================== -->
+
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>${kafka.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-connectors-kafka_${scala.binary.version}</artifactId>
+                <version>${pekko.connectors.kafka.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-avro-serializer</artifactId>
+                <version>${confluent.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-protobuf-serializer</artifactId>
+                <version>${confluent.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-json-schema-serializer</artifactId>
+                <version>${confluent.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.confluent</groupId>
+                <artifactId>kafka-schema-registry-client</artifactId>
+                <version>${confluent.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Cloud Provider SDKs                       -->
+            <!-- ========================================== -->
+
+            <!-- AWS SDK v2 -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>s3</artifactId>
+                <version>${aws.sdk.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>lambda</artifactId>
+                <version>${aws.sdk.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>s3-transfer-manager</artifactId>
+                <version>${aws.sdk.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>netty-nio-client</artifactId>
+                <version>${aws.sdk.version}</version>
+            </dependency>
+
+            <!-- Azure SDK -->
+            <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-storage-blob</artifactId>
+                <version>${azure.storage.blob.version}</version>
+            </dependency>
+
+            <!-- GCP SDK -->
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>google-cloud-storage</artifactId>
+                <version>${gcp.storage.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- JSON/YAML/Data Processing                 -->
+            <!-- ========================================== -->
+
+            <!-- Circe (Scala JSON library) -->
+            <dependency>
+                <groupId>io.circe</groupId>
+                <artifactId>circe-core_${scala.binary.version}</artifactId>
+                <version>${circe.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.circe</groupId>
+                <artifactId>circe-generic_${scala.binary.version}</artifactId>
+                <version>${circe.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.circe</groupId>
+                <artifactId>circe-parser_${scala.binary.version}</artifactId>
+                <version>${circe.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.circe</groupId>
+                <artifactId>circe-yaml_${scala.binary.version}</artifactId>
+                <version>${circe.yaml.version}</version>
+            </dependency>
+
+            <!-- Jackson (for Schema Registry compatibility) -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-jsonSchema</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-modules-java8</artifactId>
+                <version>${jackson.version}</version>
+                <type>pom</type>
+                <scope>runtime</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-cbor</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <!-- YAML parsing -->
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${snakeyaml.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Configuration                             -->
+            <!-- ========================================== -->
+
+            <!-- Typesafe Config -->
+            <dependency>
+                <groupId>com.typesafe</groupId>
+                <artifactId>config</artifactId>
+                <version>${config.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Utilities                                 -->
+            <!-- ========================================== -->
+
+            <!-- JimFS (in-memory filesystem for testing) -->
+            <dependency>
+                <groupId>com.google.jimfs</groupId>
+                <artifactId>jimfs</artifactId>
+                <version>${jimfs.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons.io.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons.compress.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons.lang3.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+
+
+            <!-- ========================================== -->
+            <!-- BDD/Testing Frameworks                    -->
+            <!-- ========================================== -->
+
+            <!-- Cucumber BDD Framework -->
+            <dependency>
+                <groupId>io.cucumber</groupId>
+                <artifactId>cucumber-java</artifactId>
+                <version>${cucumber.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.cucumber</groupId>
+                <artifactId>cucumber-scala_${scala.binary.version}</artifactId>
+                <version>${cucumber.scala.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.cucumber</groupId>
+                <artifactId>cucumber-junit</artifactId>
+                <version>${cucumber.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.cucumber</groupId>
+                <artifactId>cucumber-core</artifactId>
+                <version>${cucumber.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.cucumber</groupId>
+                <artifactId>cucumber-picocontainer</artifactId>
+                <version>${cucumber.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Logging & Observability                   -->
+            <!-- ========================================== -->
+
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+
+            <!-- OpenTelemetry -->
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-api</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-sdk</artifactId>
+                <version>${opentelemetry.version}</version>
+            </dependency>
+
+            <!-- ========================================== -->
+            <!-- Test Dependencies                         -->
+            <!-- ========================================== -->
+
+            <!-- Pekko Test Kits -->
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-actor-testkit-typed_${scala.binary.version}</artifactId>
+                <version>${pekko.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-http-testkit_${scala.binary.version}</artifactId>
+                <version>${pekko.http.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.pekko</groupId>
+                <artifactId>pekko-stream-testkit_${scala.binary.version}</artifactId>
+                <version>${pekko.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- ScalaTest -->
+            <dependency>
+                <groupId>org.scalatest</groupId>
+                <artifactId>scalatest_${scala.binary.version}</artifactId>
+                <version>${scalatest.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Mockito -->
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- WireMock (HTTP mocking for Azure/GCP integration tests) -->
+            <dependency>
+                <groupId>org.wiremock</groupId>
+                <artifactId>wiremock</artifactId>
+                <version>${wiremock.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Testcontainers -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>kafka</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>localstack</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>azure</artifactId>
+                <version>${testcontainers.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- LocalStack utilities -->
+            <dependency>
+                <groupId>cloud.localstack</groupId>
+                <artifactId>localstack-utils</artifactId>
+                <version>${localstack.utils.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <!-- Fake GCS Server for GCP integration tests -->
+            <dependency>
+                <groupId>io.aiven</groupId>
+                <artifactId>testcontainers-fake-gcs-server</artifactId>
+                <version>${fake.gcs.server.version}</version>
+                <scope>test</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- Scala Maven Plugin -->
+                <plugin>
+                    <groupId>net.alchim31.maven</groupId>
+                    <artifactId>scala-maven-plugin</artifactId>
+                    <version>${scala.maven.plugin.version}</version>
+                    <configuration>
+                        <scalaVersion>${scala.version}</scalaVersion>
+                        <recompileMode>all</recompileMode>
+                        <args>
+                            <arg>-deprecation</arg>
+                            <arg>-feature</arg>
+                            <arg>-unchecked</arg>
+                            <arg>-source:3.3</arg>
+                            <arg>-Wunused:all</arg>
+                            <arg>-Wvalue-discard</arg>
+                            <arg>-explain</arg>
+                        </args>
+                        <jvmArgs>
+                            <jvmArg>-Xms1024m</jvmArg>
+                            <jvmArg>-Xmx1024m</jvmArg>
+                        </jvmArgs>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>compile</goal>
+                                <goal>testCompile</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Maven Shade Plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>${maven.shade.plugin.version}</version>
+                </plugin>
+
+                <!-- ScalaTest Maven Plugin -->
+                <plugin>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest-maven-plugin</artifactId>
+                    <version>${scalatest.maven.plugin.version}</version>
+                    <configuration>
+                        <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
+                        <junitxml>.</junitxml>
+                        <filereports>TestSuite.txt</filereports>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>test</id>
+                            <goals>
+                                <goal>test</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- Maven Surefire Plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven.surefire.plugin.version}</version>
+                    <configuration>
+                        <skipTests>true</skipTests>
+                    </configuration>
+                </plugin>
+
+                <!-- Maven Failsafe Plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven.failsafe.plugin.version}</version>
+                </plugin>
+
+                <!-- Scoverage Plugin -->
+                <plugin>
+                    <groupId>org.scoverage</groupId>
+                    <artifactId>scoverage-maven-plugin</artifactId>
+                    <version>${scoverage.plugin.version}</version>
+                    <configuration>
+                        <scalaVersion>${scala.version}</scalaVersion>
+                        <scalacPluginVersion>2.3.0</scalacPluginVersion>
+                        <aggregateOnly>false</aggregateOnly>
+                        <highlighting>true</highlighting>
+                        <minimumCoverage>70</minimumCoverage>
+                        <failOnMinimumCoverage>false</failOnMinimumCoverage>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+
+    <profiles>
+        <!-- Development Profile (default) -->
+        <profile>
+            <id>dev</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <maven.test.skip>false</maven.test.skip>
+            </properties>
+        </profile>
+
+        <!-- Production Profile (skip tests) -->
+        <profile>
+            <id>prod</id>
+            <properties>
+                <maven.test.skip>true</maven.test.skip>
+            </properties>
+        </profile>
+
+        <!-- Unit Tests Only Profile -->
+        <profile>
+            <id>unit-only</id>
+            <properties>
+                <skipUnitTests>false</skipUnitTests>
+                <skipComponentTests>true</skipComponentTests>
+            </properties>
+        </profile>
+
+        <!-- Component Tests Only Profile -->
+        <profile>
+            <id>component-only</id>
+            <properties>
+                <skipUnitTests>true</skipUnitTests>
+                <skipComponentTests>false</skipComponentTests>
+            </properties>
+        </profile>
+
+        <!-- Code Coverage Profile (70% minimum) -->
+        <profile>
+            <id>coverage</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.scoverage</groupId>
+                        <artifactId>scoverage-maven-plugin</artifactId>
+                        <version>${scoverage.plugin.version}</version>
+                        <configuration>
+                            <scalaVersion>${scala.version}</scalaVersion>
+                            <scalacPluginVersion>2.3.0</scalacPluginVersion>
+                            <aggregateOnly>false</aggregateOnly>
+                            <highlighting>true</highlighting>
+                            <minimumCoverage>70</minimumCoverage>
+                            <failOnMinimumCoverage>true</failOnMinimumCoverage>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>check</goal>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!-- Aggregate Coverage Profile (cross-module coverage report) -->
+        <profile>
+            <id>coverage-aggregate</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.scoverage</groupId>
+                        <artifactId>scoverage-maven-plugin</artifactId>
+                        <version>${scoverage.plugin.version}</version>
+                        <configuration>
+                            <scalaVersion>${scala.version}</scalaVersion>
+                            <scalacPluginVersion>2.3.0</scalacPluginVersion>
+                            <aggregateOnly>true</aggregateOnly>
+                            <highlighting>true</highlighting>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>report</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <repositories>
+        <repository>
+            <id>central</id>
+            <name>Maven Central</name>
+            <url>https://repo1.maven.org/maven2</url>
+        </repository>
+
+        <repository>
+            <id>typesafe</id>
+            <name>Typesafe Repository</name>
+            <url>https://repo.typesafe.com/typesafe/releases/</url>
+        </repository>
+
+        <repository>
+            <id>confluent</id>
+            <name>Confluent Repository</name>
+            <url>https://packages.confluent.io/maven/</url>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>central</id>
+            <name>Maven Central</name>
+            <url>https://repo1.maven.org/maven2</url>
+        </pluginRepository>
+    </pluginRepositories>
+
+</project>

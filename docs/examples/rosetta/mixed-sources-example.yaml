@@ -1,0 +1,27 @@
+# Example: All Three Variable Sources Combined
+
+request-template:
+  vault:
+    identity:
+      # Source 1: TopicDirective built-in fields
+      principal: "{{clientPrincipal}}"
+      topic_name: "{{topic}}"
+      access_role: "{{role}}"
+
+    application:
+      # Source 2: Static config from application.conf
+      team_id: "{{$^request-params.vault-requests.team-a.id}}"
+      environment: "{{$^request-params.vault-requests.environment}}"
+
+    runtime:
+      # Source 3: Dynamic metadata from TopicDirective.metadata
+      # These come from block storage YAML loaded during BlockStorageService phase
+      test_run_id: "{{'test-run-id'}}"
+      correlation_id: "{{'correlation-id'}}"
+
+mappings:
+  - targetField: clientSecret
+    sourcePath: $.vault.credentials.secret
+
+  - targetField: clientId
+    sourcePath: $.vault.credentials.client_id

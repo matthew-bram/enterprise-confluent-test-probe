@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package com.fake.company.tests;
+
+option java_package = "com.fake.company.tests";
+option java_outer_classname = "MetricsEventProtos";
+option java_multiple_files = true;
+
+// MetricsEvent schema for Protobuf integration testing.
+// Used by Java teams to demonstrate Protobuf event production/consumption.
+// Field numbers match MetricsEvent.java implementation.
+message MetricsEventProto {
+  string event_type = 1;     // Event type discriminator (default: "MetricsEvent")
+  string event_version = 2;  // Event version (e.g., "v1", "v2")
+  string event_test_id = 3;  // Human-readable test identifier
+  string metric_id = 4;      // Unique metric identifier
+  string metric_name = 5;    // Metric name (response_time, cpu_usage, etc.)
+  double metric_value = 6;   // Metric value
+  string unit = 7;           // Unit of measurement (ms, count, bytes, etc.)
+  int64 timestamp = 8;       // Event timestamp in epoch millis
+}

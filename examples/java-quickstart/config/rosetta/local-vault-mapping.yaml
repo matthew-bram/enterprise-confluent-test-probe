@@ -1,0 +1,241 @@
+# =============================================================================
+# Rosetta Vault Mapping - Local Development (No-Op Vault)
+# =============================================================================
+# This file configures how Test-Probe maps vault responses to VaultCredentials.
+# For local development, we use a "no-op" vault provider that returns hardcoded
+# credentials without requiring a real vault service.
+#
+# Purpose:
+#   - Enable local testing without AWS Lambda, Azure Functions, or GCP Cloud Functions
+#   - Provide default OAuth credentials for Kafka authentication
+#   - Demonstrate the Rosetta mapping structure (see aws-vault-mapping.yaml for production)
+#
+# How It Works (Local Mode):
+#   1. VaultActor receives FetchCredentials message
+#   2. LocalVaultService constructs a minimal JSON response with defaults
+#   3. RosettaMapper applies mappings below to extract credentials
+#   4. VaultCredentials returned to caller (KafkaProducerStreamingActor/KafkaConsumerStreamingActor)
+#
+# VaultCredentials Model (Target):
+#   case class VaultCredentials(
+#     topic: String,        // Kafka topic name (from TopicDirective)
+#     role: String,         // "PRODUCER" or "CONSUMER" (from TopicDirective)
+#     clientId: String,     // OAuth client ID (from vault)
+#     clientSecret: String, // OAuth client secret (from vault)
+#     jaasConfig: String    // SASL JAAS config (constructed by framework)
+#   )
+#
+# Configuration in application.conf:
+#   test-probe.services.vault {
+#     provider = "local"
+#     rosetta-mapping-path = "classpath:rosetta/local-vault-mapping.yaml"
+#     local {
+#       required-fields = ["clientId", "clientSecret"]
+#     }
+#   }
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Field Mappings (JSONPath Expressions)
+# -----------------------------------------------------------------------------
+# Each mapping extracts a field from the vault JSON response using JSONPath.
+#
+# Mapping Structure:
+#   - targetField: VaultCredentials field name (clientId, clientSecret, etc.)
+#   - sourcePath: JSONPath expression to extract value from JSON response
+#   - defaultValue: Fallback value if sourcePath is not found (optional)
+#   - transformations: List of transformations to apply (optional)
+#
+# JSONPath Syntax:
+#   $                 : Root of JSON document
+#   .field            : Access field by name
+#   ['field-name']    : Access field with special characters (hyphens, spaces)
+#   [0]               : Access array element by index
+#   [*]               : Access all array elements (wildcard)
+#   ..field           : Recursive descent (search all levels)
+#
+# Example Vault Response (Local No-Op):
+#   {
+#     "credentials": {
+#       "clientId": "local-client",
+#       "clientSecret": "local-secret"
+#     }
+#   }
+
+mappings:
+  # -------------------------------------------------------------------------
+  # Client ID Mapping
+  # -------------------------------------------------------------------------
+  # Extracts OAuth client ID from vault response
+  #
+  # JSONPath: $.credentials.clientId
+  #   - Start at root ($)
+  #   - Navigate to "credentials" object
+  #   - Extract "clientId" field
+  #
+  # Default Value: "local-client"
+  #   - Used when vault response doesn't contain clientId
+  #   - Allows local testing without real credentials
+  #
+  # Example:
+  #   Input:  {"credentials": {"clientId": "my-client-id"}}
+  #   Output: VaultCredentials(clientId = "my-client-id")
+  #
+  #   Input:  {}  (empty response)
+  #   Output: VaultCredentials(clientId = "local-client")  (default)
+  - targetField: clientId
+    sourcePath: $.credentials.clientId
+    defaultValue: "local-client"
+
+  # -------------------------------------------------------------------------
+  # Client Secret Mapping
+  # -------------------------------------------------------------------------
+  # Extracts OAuth client secret from vault response
+  #
+  # JSONPath: $.credentials.clientSecret
+  #   - Start at root ($)
+  #   - Navigate to "credentials" object
+  #   - Extract "clientSecret" field
+  #
+  # Default Value: "local-secret"
+  #   - Used when vault response doesn't contain clientSecret
+  #   - Allows local testing without real credentials
+  #
+  # Security Note:
+  #   In production, client secrets should be:
+  #     - Encrypted at rest in vault
+  #     - Transmitted over HTTPS/TLS
+  #     - Base64-encoded or encrypted in vault response
+  #     - Never logged or printed to stdout
+  #
+  # Example:
+  #   Input:  {"credentials": {"clientSecret": "super-secret-key"}}
+  #   Output: VaultCredentials(clientSecret = "super-secret-key")
+  #
+  #   Input:  {}  (empty response)
+  #   Output: VaultCredentials(clientSecret = "local-secret")  (default)
+  - targetField: clientSecret
+    sourcePath: $.credentials.clientSecret
+    defaultValue: "local-secret"
+
+# =============================================================================
+# FIELD MAPPING DETAILS
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Why Only clientId and clientSecret?
+# -----------------------------------------------------------------------------
+# VaultCredentials has 5 fields: topic, role, clientId, clientSecret, jaasConfig
+#
+# Where Each Field Comes From:
+#   1. topic        : TopicDirective (NOT from vault)
+#   2. role         : TopicDirective (NOT from vault)
+#   3. clientId     : Vault (mapped here)
+#   4. clientSecret : Vault (mapped here)
+#   5. jaasConfig   : Constructed by framework (NOT from vault)
+#
+# Why topic and role are NOT mapped:
+#   - Already known from TopicDirective (topic-directive.yaml)
+#   - Passed to VaultService.fetchCredentials(topicDirective)
+#   - VaultService uses them to construct vault request, then adds them to response
+#
+# Why jaasConfig is NOT mapped:
+#   - Constructed by VaultService using clientId, clientSecret, and OAuth config
+#   - Format: "org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required
+#              clientId='...' clientSecret='...' scope='...' tokenEndpoint='...';"
+#   - OAuth config comes from application.conf (test-probe.core.kafka.oauth)
+
+# -----------------------------------------------------------------------------
+# Default Values vs Required Fields
+# -----------------------------------------------------------------------------
+# Default values make fields OPTIONAL in the vault response.
+# Required fields (configured in application.conf) are validated by VaultService.
+#
+# Configuration:
+#   test-probe.services.vault.local {
+#     required-fields = ["clientId", "clientSecret"]
+#   }
+#
+# Validation Logic:
+#   1. RosettaMapper applies mappings (with defaults if needed)
+#   2. VaultService checks if required fields are present
+#   3. If any required field is missing or empty -> VaultException thrown
+#
+# Example Scenarios:
+#   Vault Response: {"credentials": {"clientId": "abc", "clientSecret": "xyz"}}
+#   Result: SUCCESS (both required fields present)
+#
+#   Vault Response: {"credentials": {"clientId": "abc"}}
+#   Result: SUCCESS (clientSecret uses default "local-secret")
+#
+#   Vault Response: {}
+#   Result: SUCCESS (both use defaults: "local-client", "local-secret")
+#
+#   Vault Response: {"credentials": {"clientId": ""}}
+#   Result: FAILURE (clientId is empty, fails required field validation)
+
+# =============================================================================
+# PRODUCTION VAULT MAPPING (See aws-vault-mapping.yaml)
+# =============================================================================
+# For production deployments with AWS Lambda, Azure Functions, or GCP Cloud
+# Functions, use a more complex mapping file that:
+#
+#   1. Includes request-template (JSONPath template for vault request)
+#   2. Maps nested/complex JSON structures ($.data.credentials.oauth.client_id)
+#   3. Applies transformations (base64Decode, toUpper, prefix, suffix)
+#   4. Handles multiple event types with dynamic metadata
+#
+# Example Production Mapping:
+#   mappings:
+#     - targetField: clientSecret
+#       sourcePath: $.vault.production.credentials.secret
+#       transformations:
+#         - type: base64Decode      # Decode base64-encoded secret
+#
+#     - targetField: clientId
+#       sourcePath: $.vault.production.credentials.client_id
+#       transformations:
+#         - type: prefix            # Add prefix to client ID
+#           value: "kafka-"
+#
+# See: config/rosetta/aws-vault-mapping.yaml (reference example)
+
+# =============================================================================
+# TROUBLESHOOTING
+# =============================================================================
+
+# Q: What if I don't provide any credentials in local development?
+# A: Default values ("local-client", "local-secret") are used automatically
+
+# Q: How do I test with real credentials locally?
+# A: Set KAFKA_CLIENT_ID and KAFKA_CLIENT_SECRET environment variables
+#    Update mappings to use ${?ENV_VAR} substitution (not supported in YAML)
+#    Alternative: Switch provider to "aws" and use LocalStack
+
+# Q: What happens if JSONPath sourcePath is invalid?
+# A: RosettaMapper throws MappingException with details about invalid path
+#    Example: "JSONPath $.invalid.path not found in vault response"
+
+# Q: Can I add custom fields to VaultCredentials?
+# A: No, VaultCredentials is a fixed case class (topic, role, clientId, clientSecret, jaasConfig)
+#    For custom fields, use TopicDirective.metadata (passed to vault request template)
+
+# Q: How do I debug vault mapping issues?
+# A: Enable debug logging in application.conf:
+#      pekko.loglevel = "DEBUG"
+#    VaultService logs:
+#      - Vault request JSON (before sending to CSP function)
+#      - Vault response JSON (after receiving from CSP function)
+#      - Mapped VaultCredentials (after RosettaMapper processes response)
+
+# Q: What transformations are supported?
+# A: base64Decode, base64Encode, toUpper, toLower, prefix, suffix
+#    See RosettaMapper.scala for full list and implementation
+
+# Q: Can I use environment-specific mappings?
+# A: Yes, use different mapping files per environment:
+#      - rosetta/local-vault-mapping.yaml (local development)
+#      - rosetta/dev-vault-mapping.yaml (dev environment)
+#      - rosetta/prod-vault-mapping.yaml (production)
+#    Configure in application-{env}.conf:
+#      test-probe.services.vault.rosetta-mapping-path = "classpath:rosetta/prod-vault-mapping.yaml"

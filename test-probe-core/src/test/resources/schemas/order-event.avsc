@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "OrderEvent",
+  "namespace": "com.fake.company.tests",
+  "doc": "Order event schema for Avro integration testing. Used by Java teams as reference implementation.",
+  "fields": [
+    {"name": "eventType", "type": "string", "default": "OrderEvent", "doc": "Event type discriminator"},
+    {"name": "orderId", "type": "string", "doc": "Unique order identifier"},
+    {"name": "customerId", "type": "string", "doc": "Customer identifier"},
+    {"name": "amount", "type": "double", "doc": "Order amount"},
+    {"name": "currency", "type": ["null", "string"], "default": null, "doc": "Currency code (optional)"},
+    {"name": "timestamp", "type": ["null", "long"], "default": null, "doc": "Event timestamp in epoch millis (optional)"}
+  ]
+}

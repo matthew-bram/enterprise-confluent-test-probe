@@ -1,0 +1,84 @@
+```mermaid
+flowchart TD
+    Start([HTTP Request]) --> RouteMatch{Route<br/>Matches?}
+
+    RouteMatch -->|No| NotFound[handleNotFound]
+    NotFound --> NotFoundResponse[404 Not Found<br/>RestErrorResponse.notFound]
+
+    RouteMatch -->|Yes| MethodMatch{HTTP Method<br/>Matches?}
+    MethodMatch -->|No| MethodRejection[MethodRejection]
+    MethodRejection --> MethodNotAllowed[405 Method Not Allowed<br/>RestErrorResponse.methodNotAllowed]
+
+    MethodMatch -->|Yes| ContentType{Content-Type<br/>application/json?}
+    ContentType -->|No| UnsupportedMediaType[UnsupportedRequestContentTypeRejection]
+    UnsupportedMediaType --> UnsupportedResponse[415 Unsupported Media Type<br/>RestErrorResponse.unsupportedMediaType]
+
+    ContentType -->|Yes| JSONParse{JSON Valid?}
+    JSONParse -->|No| MalformedRequest[MalformedRequestContentRejection]
+    MalformedRequest --> BadRequest1[400 Bad Request<br/>RestErrorResponse.badRequest]
+
+    JSONParse -->|Yes| Deserialize{Deserialize<br/>to DTO?}
+    Deserialize -->|Fail| DeserializationException[DeserializationException]
+    DeserializationException --> BadRequest2[400 Bad Request<br/>RestErrorResponse.badRequest]
+
+    Deserialize -->|Success| Validate{RestValidation<br/>Check}
+    Validate -->|Left error| ValidationFailed[Validation Failed]
+    ValidationFailed --> ValidationError[400 Bad Request<br/>RestErrorResponse.validationError]
+
+    Validate -->|Right ok| ToCore[RestModelConversions.toCore]
+    ToCore --> ActorAsk[ServiceInterfaceFunctions<br/>Actor Ask via Circuit Breaker]
+
+    ActorAsk --> ActorResult{Actor<br/>Response?}
+
+    ActorResult -->|Success| ToRest[RestModelConversions.toRest]
+    ToRest --> SuccessResponse[200/201/202 Success<br/>JSON Response]
+
+    ActorResult -->|ServiceTimeoutException| TimeoutHandler[RestExceptionHandler]
+    TimeoutHandler --> GatewayTimeout[504 Gateway Timeout<br/>RestErrorResponse.actorTimeout]
+
+    ActorResult -->|ServiceUnavailableException| UnavailableHandler[RestExceptionHandler]
+    UnavailableHandler --> ServiceUnavailable[503 Service Unavailable<br/>RestErrorResponse.serviceUnavailable<br/>retryAfter: 30s]
+
+    ActorResult -->|IllegalArgumentException| BadRequestHandler[RestExceptionHandler]
+    BadRequestHandler --> BadRequest3[400 Bad Request<br/>RestErrorResponse.badRequest]
+
+    ActorResult -->|NoSuchElementException| NotFoundHandler[RestExceptionHandler]
+    NotFoundHandler --> NotFoundResponse2[404 Not Found<br/>RestErrorResponse.notFound]
+
+    ActorResult -->|Exception| UnexpectedHandler[RestExceptionHandler<br/>Catch-all]
+    UnexpectedHandler --> InternalServerError[500 Internal Server Error<br/>RestErrorResponse.internalServerError]
+
+    %% Logging
+    ValidationError -.->|WARN| Log1[Log: Validation failed]
+    GatewayTimeout -.->|ERROR| Log2[Log: Actor timeout<br/>with exception]
+    ServiceUnavailable -.->|WARN| Log3[Log: Circuit breaker open]
+    BadRequest3 -.->|WARN| Log4[Log: Invalid request]
+    InternalServerError -.->|ERROR| Log5[Log: Unexpected error<br/>with full stack trace]
+
+    %% Response formatting
+    NotFoundResponse --> FormatJSON[Serialize to JSON<br/>Spray JSON]
+    MethodNotAllowed --> FormatJSON
+    UnsupportedResponse --> FormatJSON
+    BadRequest1 --> FormatJSON
+    BadRequest2 --> FormatJSON
+    ValidationError --> FormatJSON
+    BadRequest3 --> FormatJSON
+    NotFoundResponse2 --> FormatJSON
+    GatewayTimeout --> FormatJSON
+    ServiceUnavailable --> FormatJSON
+    InternalServerError --> FormatJSON
+    SuccessResponse --> FormatJSON
+
+    FormatJSON --> HTTPResponse([HTTP Response<br/>to Client])
+
+    %% Styling
+    classDef errorClass fill:#ff6b6b,stroke:#c92a2a,color:#fff
+    classDef successClass fill:#51cf66,stroke:#2f9e44,color:#fff
+    classDef validationClass fill:#ffd43b,stroke:#fab005,color:#000
+    classDef handlerClass fill:#748ffc,stroke:#4c6ef5,color:#fff
+
+    class NotFoundResponse,MethodNotAllowed,UnsupportedResponse,BadRequest1,BadRequest2,BadRequest3,NotFoundResponse2,GatewayTimeout,ServiceUnavailable,InternalServerError errorClass
+    class SuccessResponse successClass
+    class Validate,ValidationError,ValidationFailed validationClass
+    class TimeoutHandler,UnavailableHandler,BadRequestHandler,NotFoundHandler,UnexpectedHandler handlerClass
+```

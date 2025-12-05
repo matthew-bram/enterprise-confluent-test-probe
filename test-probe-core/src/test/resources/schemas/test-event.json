@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TestEvent",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "eventType": {
+      "type": "string"
+    },
+    "eventVersion": {
+      "type": "string"
+    },
+    "eventTestId": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "integer",
+      "format": "int64"
+    },
+    "key": {
+      "type": "string"
+    },
+    "payload": {
+      "type": "string"
+    }
+  },
+  "required": ["eventType", "eventVersion", "eventTestId", "timestamp", "key", "payload"]
+}

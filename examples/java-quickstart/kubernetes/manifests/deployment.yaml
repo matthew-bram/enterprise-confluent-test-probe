@@ -1,0 +1,29 @@
+# =============================================================================
+# Test-Probe Java Quickstart - Deployment
+# =============================================================================
+# Raw Kubernetes manifest - alternative to Helm
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: java-quickstart
+  namespace: quickstart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java-quickstart
+  template:
+    metadata:
+      labels:
+        app: java-quickstart
+    spec:
+      containers:
+        - name: quickstart
+          image: test-probe/java-quickstart:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "kafka.kafka.svc.cluster.local:9092"
+            - name: SCHEMA_REGISTRY_URL
+              value: "http://schema-registry.kafka.svc.cluster.local:8081"

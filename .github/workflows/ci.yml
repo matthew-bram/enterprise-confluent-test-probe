@@ -53,7 +53,7 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
-          files: '**/target/scoverage-report/scoverage.xml'
+          files: '**/target/scoverage.xml'
           fail_ci_if_error: false
           verbose: true
         env:
@@ -72,5 +72,5 @@ jobs:
         if: always()
         with:
           name: coverage-reports
-          path: '**/target/scoverage-report/'
+          path: '**/target/site/scoverage/'
           retention-days: 7

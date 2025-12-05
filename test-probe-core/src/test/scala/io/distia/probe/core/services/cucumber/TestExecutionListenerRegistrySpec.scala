@@ -24,8 +24,15 @@ import java.util.UUID
  */
 class TestExecutionListenerRegistrySpec extends AnyWordSpec with Matchers with BeforeAndAfterEach {
 
-  private val testId1: UUID = UUID.fromString("11111111-1111-1111-1111-111111111111")
-  private val testId2: UUID = UUID.fromString("22222222-2222-2222-2222-222222222222")
+  // Use random UUIDs to avoid collisions with other tests running in parallel
+  // that also use the shared TestExecutionListenerRegistry
+  private var testId1: UUID = _
+  private var testId2: UUID = _
+
+  override def beforeEach(): Unit = {
+    testId1 = UUID.randomUUID()
+    testId2 = UUID.randomUUID()
+  }
 
   override def afterEach(): Unit = {
     // Clean up registry after each test

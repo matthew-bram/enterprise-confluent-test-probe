@@ -1,6 +1,7 @@
 # Enterprise Confluent Test Probe
 
 ![Build Status](https://github.com/matthew-bram/enterprise-confluent-test-probe/workflows/CI/badge.svg)
+[![codecov](https://codecov.io/gh/matthew-bram/enterprise-confluent-test-probe/graph/badge.svg)](https://codecov.io/gh/matthew-bram/enterprise-confluent-test-probe)
 ![License](https://img.shields.io/github/license/matthew-bram/enterprise-confluent-test-probe)
 
 ## Overview

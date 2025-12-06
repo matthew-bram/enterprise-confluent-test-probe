@@ -1,22 +1,25 @@
 # Getting Started with Test-Probe
 
-Welcome to Test-Probe! This guide will walk you through everything you need to know to start testing your event-driven architecture with Kafka.
+Welcome to Test-Probe! This guide will help you set up functional testing for your event-driven services and cells against real Kafka clusters in integration environments (SIT, UAT, etc.).
+
+**Test-Probe enables teams to validate that their services behave correctly throughout the SDLC and CD pipelines** - testing patterns like CQRS, CQERS, and event sourcing against your actual Kafka infrastructure.
 
 ## Table of Contents
 
 1. [Prerequisites](#prerequisites)
-2. [Installation](#installation)
-3. [Building the Framework](#building-the-framework)
-4. [Your First Test (5 minutes)](#your-first-test-5-minutes)
-5. [Understanding the Framework](#understanding-the-framework)
-6. [Writing Tests](#writing-tests)
-7. [Advanced Topics](#advanced-topics)
+2. [Connecting to Your Kafka Cluster](#connecting-to-your-kafka-cluster)
+3. [Installation](#installation)
+4. [Building the Framework](#building-the-framework)
+5. [Your First Test (5 minutes)](#your-first-test-5-minutes)
+6. [Understanding the Framework](#understanding-the-framework)
+7. [Writing Tests](#writing-tests)
+8. [Advanced Topics](#advanced-topics)
 
 ---
 
 ## Prerequisites
 
-Before you begin, ensure you have the following installed:
+Before you begin, ensure you have the following:
 
 ### Required Software
 
@@ -24,40 +27,16 @@ Before you begin, ensure you have the following installed:
 |----------|---------|---------|
 | **Java JDK** | 21+ | Runtime environment (OpenJDK, Oracle JDK, or Amazon Corretto) |
 | **Maven** | 3.9+ | Build tool (or use included wrapper `./mvnw`) |
-| **Docker** | 4.x+ | Container runtime for Testcontainers |
 
-### Docker Setup
+### Required Infrastructure
 
-Test-Probe uses Testcontainers to spin up real Kafka instances during testing. You need Docker installed and running:
+| Component | Purpose |
+|-----------|---------|
+| **Kafka Cluster** | Confluent Platform, AWS MSK, Azure Event Hubs, or self-managed |
+| **Schema Registry** | Confluent Schema Registry for Avro/Protobuf serialization |
+| **Vault (Optional)** | AWS Secrets Manager, Azure Key Vault, or GCP Secret Manager for credentials |
 
-**Option 1: Docker Desktop** (Easiest)
-```bash
-# Download from: https://www.docker.com/products/docker-desktop
-# After installation, verify:
-docker --version
-docker ps
-```
-
-**Option 2: Colima** (Free alternative for macOS)
-```bash
-brew install colima
-colima start
-docker --version
-```
-
-**Option 3: Rancher Desktop** (Free, cross-platform)
-```bash
-# Download from: https://rancherdesktop.io/
-# Configure: Preferences → Container Runtime → dockerd (moby)
-docker --version
-```
-
-**Docker Resource Requirements**:
-- **Minimum**: 8GB RAM allocated to Docker
-- **Recommended**: 16GB RAM for parallel test execution
-- **Disk Space**: 20GB free space recommended
-
-For detailed Docker setup instructions, see [Kafka Environment Setup](../../docs/testing-practice/kafka-env-setup.md).
+> **Note**: Test-Probe connects to your existing Kafka infrastructure - no local Docker setup required for users. Framework contributors needing to run component tests should see [CONTRIBUTING.md](../../CONTRIBUTING.md) for Docker setup.
 
 ### Verify Prerequisites
 
@@ -67,11 +46,144 @@ java -version
 
 # Check Maven version (should be 3.9+)
 mvn -version
+```
 
-# Check Docker is running
-docker ps
+---
 
-# Expected: Empty list or running containers (no errors)
+## Connecting to Your Kafka Cluster
+
+Test-Probe connects to real Kafka clusters in your integration environments (SIT, UAT, etc.). Configure your cluster connection based on your platform.
+
+### Configuration File
+
+Create or update `application.conf` in your project:
+
+```hocon
+test-probe {
+  kafka {
+    bootstrap-servers = "your-cluster.example.com:9092"
+    schema-registry-url = "https://schema-registry.example.com"
+  }
+}
+```
+
+### Authentication Examples
+
+<details>
+<summary><strong>Confluent Cloud</strong></summary>
+
+```hocon
+test-probe {
+  kafka {
+    bootstrap-servers = "pkc-xxxxx.us-east-1.aws.confluent.cloud:9092"
+    schema-registry-url = "https://psrc-xxxxx.us-east-1.aws.confluent.cloud"
+
+    security {
+      protocol = "SASL_SSL"
+      sasl-mechanism = "PLAIN"
+      # Credentials fetched from vault (see vault configuration)
+    }
+  }
+
+  vault {
+    provider = "aws"  # or "azure", "gcp", "local"
+    secret-id = "confluent/kafka-credentials"
+  }
+}
+```
+
+**Required secrets in vault**:
+- `kafka.api.key` - Confluent Cloud API key
+- `kafka.api.secret` - Confluent Cloud API secret
+</details>
+
+<details>
+<summary><strong>AWS MSK with IAM</strong></summary>
+
+```hocon
+test-probe {
+  kafka {
+    bootstrap-servers = "b-1.msk-cluster.xxxxx.kafka.us-east-1.amazonaws.com:9098"
+    schema-registry-url = "https://schema-registry.example.com"
+
+    security {
+      protocol = "SASL_SSL"
+      sasl-mechanism = "AWS_MSK_IAM"
+      # IAM authentication uses AWS credentials from environment
+    }
+  }
+
+  vault {
+    provider = "aws"
+    secret-id = "msk/schema-registry-credentials"
+  }
+}
+```
+
+**IAM Policy Requirements**:
+- `kafka-cluster:Connect`
+- `kafka-cluster:DescribeTopic`
+- `kafka-cluster:ReadData`
+- `kafka-cluster:WriteData`
+</details>
+
+<details>
+<summary><strong>Azure Event Hubs</strong></summary>
+
+```hocon
+test-probe {
+  kafka {
+    bootstrap-servers = "your-namespace.servicebus.windows.net:9093"
+    schema-registry-url = "https://schema-registry.example.com"
+
+    security {
+      protocol = "SASL_SSL"
+      sasl-mechanism = "PLAIN"
+      # Connection string fetched from Azure Key Vault
+    }
+  }
+
+  vault {
+    provider = "azure"
+    secret-id = "eventhubs-connection-string"
+  }
+}
+```
+</details>
+
+<details>
+<summary><strong>Self-Managed Kafka (SASL_SSL)</strong></summary>
+
+```hocon
+test-probe {
+  kafka {
+    bootstrap-servers = "kafka-broker-1:9092,kafka-broker-2:9092,kafka-broker-3:9092"
+    schema-registry-url = "https://schema-registry.example.com:8081"
+
+    security {
+      protocol = "SASL_SSL"
+      sasl-mechanism = "SCRAM-SHA-512"
+      # Credentials fetched from vault
+    }
+  }
+
+  vault {
+    provider = "local"  # For development
+    secret-id = "kafka-credentials"
+  }
+}
+```
+</details>
+
+### Environment Variables
+
+Alternatively, configure via environment variables:
+
+```bash
+export KAFKA_BOOTSTRAP_SERVERS="your-cluster:9092"
+export SCHEMA_REGISTRY_URL="https://schema-registry:8081"
+export VAULT_PROVIDER="aws"
+export VAULT_SECRET_ID="kafka-credentials"
 ```
 
 ---
@@ -491,10 +603,10 @@ Test-Probe consists of several layers working together:
 └───────────────┬───────────────────────────┘
                 │
 ┌───────────────▼───────────────────────────┐
-│  Infrastructure (via Testcontainers)     │
-│  - Apache Kafka                           │
-│  - Confluent Schema Registry              │
-│  - (Optional) Vault for secrets           │
+│  Your Kafka Infrastructure               │
+│  - Confluent Platform / AWS MSK / etc.    │
+│  - Schema Registry                        │
+│  - Vault for secrets (optional)           │
 └───────────────────────────────────────────┘
 ```
 
@@ -517,8 +629,8 @@ Code that implements each Gherkin step. Test-Probe provides built-in steps for c
 #### 3. Actors
 High-performance concurrent components that handle test execution, Kafka operations, and evidence collection.
 
-#### 4. Testcontainers
-Automatically spins up Docker containers with Kafka and Schema Registry for each test run.
+#### 4. Real Cluster Connection
+Test-Probe connects to your actual Kafka infrastructure (Confluent Platform, AWS MSK, Azure Event Hubs, etc.) - no local containers needed.
 
 ---
 

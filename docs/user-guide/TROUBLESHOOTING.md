@@ -1,229 +1,18 @@
 # Test-Probe Troubleshooting Guide
 
-Solutions to common issues when using Test-Probe for event-driven architecture testing.
+Solutions to common issues when using Test-Probe for event-driven architecture testing against real Kafka clusters.
 
 ## Table of Contents
 
-- [Docker and Testcontainers Issues](#docker-and-testcontainers-issues)
 - [Kafka Connection Problems](#kafka-connection-problems)
+- [Authentication Issues](#authentication-issues)
 - [Schema Registry Errors](#schema-registry-errors)
 - [Test Timeout Issues](#test-timeout-issues)
 - [Test Failures](#test-failures)
 - [Build and Compilation Issues](#build-and-compilation-issues)
 - [Performance Issues](#performance-issues)
 
----
-
-## Docker and Testcontainers Issues
-
-### Issue: "Cannot connect to Docker daemon"
-
-**Error Message**:
-```
-org.testcontainers.dockerclient.EnvironmentAndSystemPropertyClientProviderStrategy
-Cannot connect to the Docker daemon at unix:///var/run/docker.sock
-```
-
-**Cause**: Docker daemon is not running or not accessible.
-
-**Solutions**:
-
-<details>
-<summary><strong>macOS with Docker Desktop</strong></summary>
-
-1. **Check Docker Desktop is running**:
-   - Look for Docker whale icon in menu bar
-   - If not running: Launch Docker Desktop from Applications
-
-2. **Verify Docker is accessible**:
-   ```bash
-   docker ps
-   # Expected: List of containers (or empty list)
-   # Error: "Cannot connect..." means Docker isn't running
-   ```
-
-3. **Restart Docker Desktop**:
-   - Click Docker icon → Quit Docker Desktop
-   - Relaunch Docker Desktop
-   - Wait for "Docker Desktop is running" message
-</details>
-
-<details>
-<summary><strong>macOS with Colima</strong></summary>
-
-1. **Start Colima**:
-   ```bash
-   colima start
-   ```
-
-2. **Check status**:
-   ```bash
-   colima status
-   # Expected: "colima is running"
-   ```
-
-3. **Restart if needed**:
-   ```bash
-   colima restart
-   ```
-</details>
-
-<details>
-<summary><strong>Linux</strong></summary>
-
-1. **Check Docker service**:
-   ```bash
-   sudo systemctl status docker
-   ```
-
-2. **Start Docker service**:
-   ```bash
-   sudo systemctl start docker
-   ```
-
-3. **Enable Docker on boot**:
-   ```bash
-   sudo systemctl enable docker
-   ```
-
-4. **Add user to docker group** (avoid sudo):
-   ```bash
-   sudo usermod -aG docker $USER
-   newgrp docker
-   ```
-</details>
-
-### Issue: "Testcontainers timing out"
-
-**Error Message**:
-```
-org.testcontainers.containers.ContainerLaunchException: Timed out waiting for container port to open (localhost:32768 should be listening)
-```
-
-**Cause**: Container startup taking longer than timeout (usually due to resource constraints).
-
-**Solutions**:
-
-1. **Increase Docker RAM allocation**:
-   ```
-   Docker Desktop → Preferences → Resources
-   - RAM: 8GB minimum, 16GB recommended
-   - CPU: 4+ cores
-   - Disk: 20GB free space
-   ```
-
-2. **Scale down local Kubernetes** (if running):
-   ```bash
-   ./scripts/k8s-scale.sh down
-   ```
-
-3. **Increase test timeout** (in your test code):
-   ```java
-   // Java
-   @Timeout(value = 5, unit = TimeUnit.MINUTES)
-   @Test
-   public void myTest() { ... }
-   ```
-
-   ```scala
-   // Scala
-   implicit val patience: PatienceConfig = PatienceConfig(
-     timeout = Span(5, Minutes),
-     interval = Span(500, Millis)
-   )
-   ```
-
-4. **Pre-pull Docker images** (speeds up first run):
-   ```bash
-   docker pull confluentinc/cp-kafka:7.6.0
-   docker pull confluentinc/cp-schema-registry:7.6.0
-   ```
-
-5. **Restart Docker**:
-   ```bash
-   # Docker Desktop: Click Docker icon → Restart
-   # Colima:
-   colima restart
-   ```
-
-### Issue: "Port already in use"
-
-**Error Message**:
-```
-Bind for 0.0.0.0:9092 failed: port is already allocated
-```
-
-**Cause**: Port 9092 (or other Kafka ports) already in use by another process.
-
-**Solutions**:
-
-1. **Find process using port**:
-   ```bash
-   # macOS/Linux
-   lsof -i :9092
-
-   # Windows
-   netstat -ano | findstr :9092
-   ```
-
-2. **Stop conflicting process**:
-   ```bash
-   # macOS/Linux
-   kill -9 <PID>
-
-   # Stop local Kafka if running
-   ./scripts/k8s-scale.sh down
-   ```
-
-3. **Let Testcontainers use random ports** (default behavior):
-   - Testcontainers automatically assigns available ports
-   - No configuration needed
-
-4. **Clean up orphaned containers**:
-   ```bash
-   docker ps -a --filter "label=org.testcontainers" --format "{{.ID}}" | xargs docker rm -f
-   ```
-
-### Issue: "Out of disk space"
-
-**Error Message**:
-```
-no space left on device
-```
-
-**Cause**: Docker has consumed all available disk space with images/containers.
-
-**Solutions**:
-
-1. **Check Docker disk usage**:
-   ```bash
-   docker system df
-   ```
-
-2. **Clean up unused resources**:
-   ```bash
-   # Remove stopped containers, unused networks, dangling images
-   docker system prune -f
-
-   # Remove ALL unused images (more aggressive)
-   docker system prune -a -f
-
-   # Remove volumes (WARNING: deletes data)
-   docker volume prune -f
-   ```
-
-3. **Increase Docker disk allocation**:
-   ```
-   Docker Desktop → Preferences → Resources → Disk image size
-   - Increase to 60GB+ for development
-   ```
-
-4. **Clean build artifacts**:
-   ```bash
-   cd test-probe
-   mvn clean
-   rm -rf target/
-   ```
+> **For Framework Contributors**: If you're developing Test-Probe itself and experiencing Docker/Testcontainers issues, see [Framework Testing Guide](../../docs/dev/FRAMEWORK-TESTING.md).
 
 ---
 
@@ -236,41 +25,40 @@ no space left on device
 org.apache.kafka.common.errors.TimeoutException: Failed to update metadata after 60000 ms
 ```
 
-**Cause**: Cannot connect to Kafka broker (usually means broker didn't start).
+**Cause**: Cannot connect to Kafka broker.
 
 **Solutions**:
 
-1. **Check Testcontainers started Kafka**:
+1. **Verify bootstrap servers configuration**:
    ```bash
-   docker ps
-   # Look for: confluentinc/cp-kafka
+   # Check your application.conf
+   cat src/main/resources/application.conf | grep bootstrap-servers
+
+   # Or check environment variable
+   echo $KAFKA_BOOTSTRAP_SERVERS
    ```
 
-2. **Check container logs**:
+2. **Test network connectivity**:
    ```bash
-   docker logs <kafka-container-id>
-   # Look for errors like:
-   # - "FATAL: Insufficient memory"
-   # - "ERROR: Failed to bind to port"
+   # Check if broker is reachable
+   nc -zv your-kafka-broker.com 9092
+
+   # For Confluent Cloud
+   nc -zv pkc-xxxxx.us-east-1.aws.confluent.cloud 9092
    ```
 
-3. **Verify Docker resources**:
+3. **Check firewall/security groups**:
+   - Ensure port 9092 (or your configured port) is open
+   - For AWS MSK: Check security group inbound rules
+   - For Azure: Check network security groups
+
+4. **Verify VPN/Network access**:
+   - Ensure you're on the correct network/VPN
+   - Check if the cluster requires private network access
+
+5. **Test with Kafka CLI tools**:
    ```bash
-   docker system info | grep "Total Memory"
-   # Should be: 8GB+ available
-   ```
-
-4. **Wait for Kafka to be ready**:
-   - Kafka takes 20-40 seconds to start
-   - Increase `KAFKA_STARTUP_TIMEOUT` if needed
-
-5. **Check bootstrap servers configuration**:
-   ```gherkin
-   # Correct: Use Testcontainers-provided address
-   Given I have a topic "test-events"
-
-   # Incorrect: Hardcoded localhost
-   Given I have a topic "test-events" with bootstrap servers "localhost:9092"
+   kafka-topics.sh --bootstrap-server your-broker:9092 --list
    ```
 
 ### Issue: "Topic not found"
@@ -280,27 +68,110 @@ org.apache.kafka.common.errors.TimeoutException: Failed to update metadata after
 org.apache.kafka.common.errors.UnknownTopicOrPartitionException: Topic 'my-topic' not found
 ```
 
-**Cause**: Topic doesn't exist or auto-create disabled.
+**Cause**: Topic doesn't exist or you don't have permissions.
 
 **Solutions**:
 
-1. **Use Test-Probe topic creation step**:
-   ```gherkin
-   Given I have a topic "my-topic"
-   ```
-
-2. **Enable auto-create in Kafka** (Testcontainers default):
+1. **Verify topic exists on cluster**:
    ```bash
-   # Check container env vars
-   docker inspect <kafka-container> | grep AUTO_CREATE_TOPICS
-   # Should be: KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+   kafka-topics.sh --bootstrap-server your-broker:9092 --list | grep my-topic
    ```
 
-3. **Create topic manually** (in test setup):
-   ```java
-   AdminClient admin = AdminClient.create(props);
-   NewTopic topic = new NewTopic("my-topic", 1, (short) 1);
-   admin.createTopics(Collections.singletonList(topic));
+2. **Check topic permissions**:
+   - Ensure your credentials have read/write access to the topic
+   - For Confluent Cloud: Check ACLs in the Confluent Cloud Console
+   - For AWS MSK: Check IAM policies
+
+3. **Create topic if needed**:
+   ```bash
+   kafka-topics.sh --bootstrap-server your-broker:9092 \
+     --create --topic my-topic \
+     --partitions 3 --replication-factor 3
+   ```
+
+4. **Check topic naming conventions**:
+   - Some environments have topic naming restrictions
+   - Ensure topic name matches what's registered in Schema Registry
+
+---
+
+## Authentication Issues
+
+### Issue: "SASL authentication failed"
+
+**Error Message**:
+```
+org.apache.kafka.common.errors.SaslAuthenticationException: Authentication failed
+```
+
+**Cause**: Invalid credentials or misconfigured SASL settings.
+
+**Solutions**:
+
+1. **Verify vault credentials**:
+   ```bash
+   # Check vault configuration
+   echo $VAULT_PROVIDER
+   echo $VAULT_SECRET_ID
+
+   # Test vault access (AWS example)
+   aws secretsmanager get-secret-value --secret-id kafka-credentials
+   ```
+
+2. **Check SASL mechanism**:
+   ```hocon
+   # Confluent Cloud uses PLAIN
+   security {
+     protocol = "SASL_SSL"
+     sasl-mechanism = "PLAIN"
+   }
+
+   # AWS MSK can use SCRAM-SHA-512 or IAM
+   security {
+     protocol = "SASL_SSL"
+     sasl-mechanism = "AWS_MSK_IAM"  # or "SCRAM-SHA-512"
+   }
+   ```
+
+3. **Verify API key/secret format**:
+   - Confluent Cloud: API key should be ~16 characters
+   - Check for trailing whitespace or newlines in secrets
+
+4. **Test authentication directly**:
+   ```bash
+   # Using kafka-console-consumer with SASL
+   kafka-console-consumer.sh \
+     --bootstrap-server your-broker:9092 \
+     --topic test-topic \
+     --consumer.config client.properties
+   ```
+
+### Issue: "SSL handshake failed"
+
+**Error Message**:
+```
+javax.net.ssl.SSLHandshakeException: PKIX path building failed
+```
+
+**Cause**: SSL certificate validation issues.
+
+**Solutions**:
+
+1. **For Confluent Cloud/public clouds**: Certificates are typically trusted by default
+
+2. **For self-managed clusters with custom CA**:
+   ```hocon
+   security {
+     ssl {
+       truststore-location = "/path/to/truststore.jks"
+       truststore-password = "changeit"
+     }
+   }
+   ```
+
+3. **Verify certificate chain**:
+   ```bash
+   openssl s_client -connect your-broker:9092 -showcerts
    ```
 
 ### Issue: "Consumer group rebalance timeout"
@@ -362,16 +233,15 @@ io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException: Su
    ls src/main/proto/*.proto
    ```
 
-3. **Check Schema Registry is running**:
+3. **Check Schema Registry connection**:
    ```bash
-   docker ps | grep schema-registry
-   # Should show: confluentinc/cp-schema-registry
-   ```
-
-4. **Test Schema Registry connection**:
-   ```bash
-   curl http://localhost:8081/subjects
+   # Test Schema Registry connectivity
+   curl https://your-schema-registry:8081/subjects
    # Should return: JSON list of registered subjects
+
+   # For Confluent Cloud
+   curl -u "$SR_API_KEY:$SR_API_SECRET" \
+     https://psrc-xxxxx.us-east-1.aws.confluent.cloud/subjects
    ```
 
 ### Issue: "Schema compatibility error"
@@ -435,8 +305,8 @@ java.util.concurrent.TimeoutException: Timed out after 10 seconds waiting for ev
 2. **Verify event was produced**:
    ```bash
    # Check Kafka topic contents
-   docker exec <kafka-container> kafka-console-consumer \
-     --bootstrap-server localhost:9092 \
+   kafka-console-consumer.sh \
+     --bootstrap-server your-broker:9092 \
      --topic my-topic \
      --from-beginning \
      --timeout-ms 5000
@@ -458,36 +328,6 @@ java.util.concurrent.TimeoutException: Timed out after 10 seconds waiting for ev
 5. **Check consumer configuration**:
    - Ensure `auto.offset.reset=earliest`
    - Verify consumer group is unique per test
-
-### Issue: "Testcontainer startup timeout"
-
-**Error Message**:
-```
-org.testcontainers.containers.ContainerLaunchException: Timed out waiting for log output matching '.*started.*'
-```
-
-**Cause**: Kafka container taking too long to start (resource constraints).
-
-**Solutions**:
-
-1. **Allocate more resources to Docker** (see Docker section above)
-
-2. **Pre-pull images**:
-   ```bash
-   docker pull confluentinc/cp-kafka:7.6.0
-   docker pull confluentinc/cp-schema-registry:7.6.0
-   ```
-
-3. **Increase startup timeout** (in test configuration):
-   ```java
-   KafkaContainer kafka = new KafkaContainer(DockerImageName.parse("confluentinc/cp-kafka:7.6.0"))
-     .withStartupTimeout(Duration.ofMinutes(3));
-   ```
-
-4. **Scale down competing resources**:
-   ```bash
-   ./scripts/k8s-scale.sh down
-   ```
 
 ---
 
@@ -522,8 +362,8 @@ AssertionError: Expected JSONPath '$.status' to match 'completed', but was 'pend
 3. **Verify event structure**:
    ```bash
    # Consume raw event from Kafka
-   docker exec <kafka-container> kafka-console-consumer \
-     --bootstrap-server localhost:9092 \
+   kafka-console-consumer.sh \
+     --bootstrap-server your-broker:9092 \
      --topic my-topic \
      --from-beginning \
      --max-messages 1
@@ -689,40 +529,19 @@ io.cucumber.junit.UndefinedStepException: The step "I have a topic 'my-topic'" i
 
 ### Issue: Tests running slowly
 
-**Symptom**: Tests taking 2x-3x longer than expected.
+**Symptom**: Tests taking longer than expected.
 
 **Solutions**:
 
-1. **Check Docker resources**:
-   ```bash
-   docker system info | grep "Total Memory"
-   # Should be: 8GB+ (16GB recommended)
-   ```
+1. **Check network latency**:
+   - Ensure your test runner is in the same region as your Kafka cluster
+   - Consider using a dedicated test cluster closer to CI/CD runners
 
-2. **Scale down Kubernetes**:
-   ```bash
-   ./scripts/k8s-scale.sh down
-   ```
+2. **Reduce test timeouts**:
+   - If events arrive quickly, reduce wait times in assertions
+   - Use appropriate timeouts for your environment
 
-3. **Pre-pull images**:
-   ```bash
-   docker pull confluentinc/cp-kafka:7.6.0
-   docker pull confluentinc/cp-schema-registry:7.6.0
-   ```
-
-4. **Use faster test commands**:
-   ```bash
-   # Fast: Unit tests only (~30s)
-   ./scripts/test-unit.sh -m core
-
-   # Medium: Component tests (~3min)
-   ./scripts/test-component.sh -m core
-
-   # Slow: All tests (~5min)
-   ./scripts/test-all.sh -m core
-   ```
-
-5. **Run tests in parallel** (requires 16GB RAM):
+3. **Run tests in parallel**:
    ```xml
    <configuration>
      <parallel>scenarios</parallel>
@@ -730,9 +549,22 @@ io.cucumber.junit.UndefinedStepException: The step "I have a topic 'my-topic'" i
    </configuration>
    ```
 
+4. **Use faster test commands**:
+   ```bash
+   # Fast: Unit tests only (~30s)
+   ./scripts/test-unit.sh -m core
+
+   # Integration tests
+   mvn test -Pintegration
+   ```
+
+5. **Optimize Kafka client settings**:
+   - Adjust `linger.ms` and `batch.size` for producers
+   - Use appropriate consumer fetch settings
+
 ### Issue: CI/CD builds timing out
 
-**Symptom**: Builds exceed CI/CD timeout (e.g., 15 minutes).
+**Symptom**: Builds exceed CI/CD timeout.
 
 **Solutions**:
 
@@ -743,28 +575,23 @@ io.cucumber.junit.UndefinedStepException: The step "I have a topic 'my-topic'" i
      timeout: 20m
    ```
 
-2. **Cache Docker images**:
-   ```yaml
-   # GitLab CI
-   before_script:
-     - docker pull confluentinc/cp-kafka:7.6.0 || true
-   ```
+2. **Use a Kafka cluster close to CI/CD runners**:
+   - Deploy test cluster in same region as CI/CD infrastructure
+   - Consider dedicated CI/CD Kafka cluster
 
 3. **Use faster runners**:
    ```yaml
    # GitLab CI
    test:
      tags:
-       - docker
        - high-cpu  # Runners with more resources
    ```
 
 4. **Split test stages**:
    ```yaml
    stages:
-     - unit-tests     # Fast (2-3 min)
-     - component-tests  # Medium (5-7 min)
-     - integration-tests  # Slow (10-15 min)
+     - unit-tests        # Fast
+     - integration-tests # Slower
    ```
 
 ---
@@ -780,16 +607,13 @@ If you couldn't find a solution here:
 
    # Cucumber logs
    cat target/cucumber-reports/cucumber.json
-
-   # Docker logs
-   docker logs <container-id>
    ```
 
 2. **Enable debug logging**:
    ```xml
    <!-- logback-test.xml -->
    <logger name="io.distia.probe" level="DEBUG"/>
-   <logger name="org.testcontainers" level="DEBUG"/>
+   <logger name="org.apache.kafka" level="DEBUG"/>
    ```
 
 3. **Search existing issues**: Check GitHub Issues for similar problems
@@ -797,8 +621,7 @@ If you couldn't find a solution here:
 4. **Open a new issue** with:
    - Test-Probe version
    - Java version (`java -version`)
-   - Docker version (`docker --version`)
-   - Docker RAM allocation
+   - Kafka cluster type (Confluent Cloud, AWS MSK, etc.)
    - Feature file (Gherkin scenario)
    - Complete error message and stack trace
    - Logs from `target/surefire-reports/`
@@ -811,4 +634,4 @@ If you couldn't find a solution here:
 - [Getting Started Guide](GETTING-STARTED.md)
 - [FAQ](FAQ.md)
 - [Build Scripts README](../../scripts/README.md)
-- [Kafka Environment Setup](../testing-practice/kafka-env-setup.md)
+- [Framework Testing Guide](../dev/FRAMEWORK-TESTING.md) (for contributors)

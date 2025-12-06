@@ -6,6 +6,7 @@ import org.testcontainers.utility.DockerImageName
 
 import java.net.{HttpURLConnection, URL}
 import java.util.Properties
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.util.Try
@@ -29,6 +30,10 @@ private[core] object TestcontainersManager {
   private val maxAttempts: Int = if isCI then 90 else 30
   private val stabilizationDelayMs: Int = if isCI then 10000 else 1000
 
+  // Latch ensures all callers block until cluster is fully stabilized
+  // First caller creates the cluster and releases the latch; others wait
+  private val clusterReadyLatch = new CountDownLatch(1)
+
   sys.addShutdownHook {
     println(s"[TestcontainersManager] JVM shutdown detected, cleaning up ${clusters.size} cluster(s)...")
     cleanupAll()
@@ -38,12 +43,30 @@ private[core] object TestcontainersManager {
     clusters.getOrElseUpdate(name, createCluster(name))
   }
 
-  def start(): Unit = synchronized {
-    if clusters.contains("default") then
-      println(s"[TestcontainersManager] Already started, reusing containers")
-      return
+  /**
+   * Ensures the default cluster is started and fully stabilized.
+   *
+   * Thread-safe: First caller creates the cluster and releases the latch.
+   * All other callers block on the latch until cluster is ready.
+   */
+  def start(): Unit = {
+    val shouldCreate = synchronized {
+      val needsCreation = !clusters.contains("default")
+      if needsCreation then getOrCreateCluster("default")
+      needsCreation
+    }
 
-    getOrCreateCluster("default")
+    if shouldCreate then
+      clusterReadyLatch.countDown()
+      println(s"[TestcontainersManager] Cluster ready, latch released")
+    else
+      awaitClusterReady()
+  }
+
+  private def awaitClusterReady(): Unit = {
+    val acquired = clusterReadyLatch.await(2, TimeUnit.MINUTES)
+    if !acquired then
+      throw new RuntimeException("Timed out waiting for cluster to become ready")
   }
 
   def getKafkaBootstrapServers: String = getOrCreateCluster("default").bootstrapServers

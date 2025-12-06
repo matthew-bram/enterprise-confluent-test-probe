@@ -116,35 +116,73 @@ curl -X POST https://test-probe.example.com/api/v1/test/start \
 curl https://test-probe.example.com/api/v1/test/550e8400-e29b-41d4-a716-446655440000/status
 ```
 
-**In Progress:**
+**Test FSM States:**
+- `Setup` - Test initialized, awaiting start
+- `Loading` - Loading test bundle from block storage
+- `Loaded` - Test loaded and ready for execution
+- `Testing` - Test currently executing
+- `Completed` - Test completed (check `success` field)
+- `Exception` - Test failed with error
+
+**Loading (test bundle being fetched):**
 ```json
 {
   "test-id": "550e8400-e29b-41d4-a716-446655440000",
-  "state": "InProgress",
-  "current-phase": "Executing",
-  "progress-percent": 45
+  "state": "Loading",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration"
 }
 ```
 
-**Completed:**
+**Testing (execution in progress):**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Testing",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z"
+}
+```
+
+**Completed (tests passed):**
 ```json
 {
   "test-id": "550e8400-e29b-41d4-a716-446655440000",
   "state": "Completed",
-  "current-phase": "Completed",
-  "progress-percent": 100,
-  "result": "All tests passed"
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z",
+  "end-time": "2025-12-05T14:32:15Z",
+  "success": true
 }
 ```
 
-**Failed:**
+**Completed (tests failed):**
 ```json
 {
   "test-id": "550e8400-e29b-41d4-a716-446655440000",
-  "state": "Failed",
-  "current-phase": "Exception",
-  "progress-percent": 75,
-  "error": "Test execution failed - timeout waiting for events"
+  "state": "Completed",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z",
+  "end-time": "2025-12-05T14:31:45Z",
+  "success": false,
+  "error": "2 scenarios failed - see evidence for details"
+}
+```
+
+**Exception (execution error):**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Exception",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z",
+  "end-time": "2025-12-05T14:31:45Z",
+  "success": false,
+  "error": "Timeout waiting for events on topic orders-created"
 }
 ```
 
@@ -256,22 +294,30 @@ jobs:
           while [ $ELAPSED -lt $MAX_WAIT ]; do
             RESPONSE=$(curl -sf "${TEST_PROBE_URL}/api/v1/test/${TEST_ID}/status")
             STATE=$(echo "$RESPONSE" | jq -r '.state')
-            PROGRESS=$(echo "$RESPONSE" | jq -r '.["progress-percent"]')
 
-            echo "Status: ${STATE} (${PROGRESS}%)"
+            echo "Status: ${STATE}"
 
+            # Terminal states: Completed or Exception
             if [ "$STATE" = "Completed" ]; then
-              RESULT=$(echo "$RESPONSE" | jq -r '.result')
-              echo "result=passed" >> $GITHUB_OUTPUT
-              echo "Test completed: ${RESULT}"
-              exit 0
-            elif [ "$STATE" = "Failed" ]; then
+              SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+              if [ "$SUCCESS" = "true" ]; then
+                echo "result=passed" >> $GITHUB_OUTPUT
+                echo "Test completed successfully"
+                exit 0
+              else
+                ERROR=$(echo "$RESPONSE" | jq -r '.error // "Tests failed"')
+                echo "result=failed" >> $GITHUB_OUTPUT
+                echo "Test completed with failures: ${ERROR}"
+                exit 1
+              fi
+            elif [ "$STATE" = "Exception" ]; then
               ERROR=$(echo "$RESPONSE" | jq -r '.error')
               echo "result=failed" >> $GITHUB_OUTPUT
-              echo "Test failed: ${ERROR}"
+              echo "Test exception: ${ERROR}"
               exit 1
             fi
 
+            # In-progress states: Setup, Loading, Loaded, Testing
             sleep $POLL_INTERVAL
             ELAPSED=$((ELAPSED + POLL_INTERVAL))
           done
@@ -408,14 +454,22 @@ integration-test:
         STATE=$(echo "$RESPONSE" | jq -r '.state')
         echo "Status: ${STATE}"
 
+        # Terminal states: Completed or Exception
         if [ "$STATE" = "Completed" ]; then
-          echo "RESULT=passed" >> test.env
-          exit 0
-        elif [ "$STATE" = "Failed" ]; then
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+          if [ "$SUCCESS" = "true" ]; then
+            echo "RESULT=passed" >> test.env
+            exit 0
+          else
+            echo "RESULT=failed" >> test.env
+            exit 1
+          fi
+        elif [ "$STATE" = "Exception" ]; then
           echo "RESULT=failed" >> test.env
           exit 1
         fi
 
+        # In-progress states: Setup, Loading, Loaded, Testing
         sleep 10
         ELAPSED=$((ELAPSED + 10))
       done
@@ -547,16 +601,22 @@ pipeline {
                         ).trim()
 
                         def json = readJSON text: response
-                        echo "Status: ${json.state} (${json['progress-percent']}%)"
+                        echo "Status: ${json.state}"
 
+                        // Terminal states: Completed or Exception
                         if (json.state == 'Completed') {
-                            testPassed = true
-                            echo "Test completed: ${json.result}"
+                            if (json.success == true) {
+                                testPassed = true
+                                echo "Test completed successfully"
+                            } else {
+                                error "Test completed with failures: ${json.error ?: 'Tests failed'}"
+                            }
                             break
-                        } else if (json.state == 'Failed') {
-                            error "Test failed: ${json.error}"
+                        } else if (json.state == 'Exception') {
+                            error "Test exception: ${json.error}"
                         }
 
+                        // In-progress states: Setup, Loading, Loaded, Testing
                         sleep pollInterval
                         elapsed += pollInterval
                     }
@@ -614,12 +674,17 @@ pipeline {
 
 The test status response includes information you can use for quality gates:
 
-| State | Quality Gate Action |
-|-------|---------------------|
-| `Completed` with `result: "All tests passed"` | Pass pipeline |
-| `Completed` with failures in result | Fail pipeline |
-| `Failed` | Fail pipeline |
-| Timeout (no completion within limit) | Fail pipeline |
+| State | `success` Field | Quality Gate Action |
+|-------|-----------------|---------------------|
+| `Completed` | `true` | Pass pipeline |
+| `Completed` | `false` | Fail pipeline (tests failed) |
+| `Exception` | `false` | Fail pipeline (execution error) |
+| Timeout (no terminal state) | N/A | Fail pipeline |
+
+**Key fields for quality gate decisions:**
+- `state`: Terminal states are `Completed` and `Exception`
+- `success`: Boolean indicating test pass/fail (only set when `state` is terminal)
+- `error`: Optional error message when `success` is `false`
 
 ### Evidence-Based Gates
 

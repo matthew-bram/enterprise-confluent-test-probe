@@ -29,6 +29,10 @@ private[core] object TestcontainersManager {
   private val maxAttempts: Int = if isCI then 90 else 30
   private val stabilizationDelayMs: Int = if isCI then 10000 else 1000
 
+  // Ready flag - ensures all callers wait until cluster is fully stabilized
+  // This prevents race conditions when tests run in parallel
+  @volatile private var clusterReady: Boolean = false
+
   sys.addShutdownHook {
     println(s"[TestcontainersManager] JVM shutdown detected, cleaning up ${clusters.size} cluster(s)...")
     cleanupAll()
@@ -38,12 +42,38 @@ private[core] object TestcontainersManager {
     clusters.getOrElseUpdate(name, createCluster(name))
   }
 
-  def start(): Unit = synchronized {
-    if clusters.contains("default") then
-      println(s"[TestcontainersManager] Already started, reusing containers")
-      return
+  def start(): Unit = {
+    // Fast path: if already ready, return immediately
+    if clusterReady then return
 
-    getOrCreateCluster("default")
+    synchronized {
+      // Double-check after acquiring lock
+      if clusterReady then return
+
+      if !clusters.contains("default") then
+        // We are the first - create the cluster and mark ready
+        getOrCreateCluster("default")
+        clusterReady = true
+        println(s"[TestcontainersManager] Cluster ready flag set")
+        return
+    }
+
+    // Another thread is setting up - wait for ready flag
+    if !clusterReady then waitForReady()
+  }
+
+  private def waitForReady(): Unit = {
+    val maxWaitMs = 120000 // 2 minutes max wait
+    val startTime = System.currentTimeMillis()
+
+    while (!clusterReady && (System.currentTimeMillis() - startTime) < maxWaitMs) {
+      Thread.sleep(100)
+    }
+
+    if !clusterReady then
+      throw new RuntimeException("Timed out waiting for cluster to become ready")
+
+    println(s"[TestcontainersManager] Ready signal received, cluster available")
   }
 
   def getKafkaBootstrapServers: String = getOrCreateCluster("default").bootstrapServers

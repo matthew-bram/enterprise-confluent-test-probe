@@ -1,5 +1,9 @@
 # Test Probe Build Scripts
 
+> **Audience**: This documentation is for **contributors developing the Test-Probe framework itself**. These scripts run the framework's own test suite using Testcontainers.
+>
+> **For end users**: If you're using Test-Probe to test your services against Kafka, see the [CI/CD Pipeline Integration Guide](../docs/user-guide/integration/ci-cd-pipelines.md) for how to integrate with Test-Probe's REST API.
+
 **Purpose**: Developer-friendly wrapper scripts that bake in best practices for Maven builds, testing, and CI/CD.
 
 ---
@@ -352,14 +356,17 @@ mvn package -DskipTests
 - Coverage reports: `*/target/site/scoverage/index.html`
 - Test reports: `*/target/surefire-reports/`
 
-**CI/CD Integration**:
+**CI/CD Integration** (for framework development pipelines):
 ```yaml
-# GitHub Actions example
-- name: Full CI/CD Build
+# GitHub Actions example - Framework development only
+# For running Test-Probe's own test suite in CI
+- name: Full Framework Build
   run: ./scripts/build-ci.sh
   env:
     SKIP_K8S_SCALING: 1  # No K8s in CI
 ```
+
+> **Note**: This is for building/testing the Test-Probe framework itself, not for end users running tests against their Kafka clusters. End users should integrate with the Test-Probe REST API. See [CI/CD Pipeline Integration](../docs/user-guide/integration/ci-cd-pipelines.md).
 
 ---
 
@@ -649,4 +656,4 @@ scripts/
 ---
 
 **Maintained By**: Engineering Team
-**Last Updated**: 2025-10-30
+**Last Updated**: 2025-12-05

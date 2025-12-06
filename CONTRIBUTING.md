@@ -28,7 +28,73 @@ This project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md). By participatin
    ```bash
    git remote add upstream https://github.com/matthew-bram/enterprise-confluent-test-probe.git
    ```
-4. **Set up your development environment** (see README.md for specific instructions)
+4. **Set up your development environment** (see below)
+
+## Development Environment Setup
+
+> **Note**: This section is for contributors developing the Test-Probe framework itself. End users of Test-Probe do not need Docker - they connect to real Kafka clusters. See the [Getting Started Guide](docs/user-guide/GETTING-STARTED.md) for user setup.
+
+### Prerequisites for Framework Development
+
+| Requirement | Version | Purpose |
+|-------------|---------|---------|
+| Java | 21+ | Runtime and compilation |
+| Maven | 3.9+ | Build tool |
+| Docker | Desktop 4.x+ | Required for component tests |
+
+### Docker Setup
+
+The framework uses [Testcontainers](https://www.testcontainers.org/) internally to spin up real Kafka instances for testing the framework's own code. This ensures the framework works correctly before users deploy it against their real clusters.
+
+**Docker Desktop (Recommended)**:
+```bash
+# Verify Docker is running
+docker info
+```
+
+**Resource Requirements**:
+- **Minimum**: 8GB RAM allocated to Docker
+- **Recommended**: 16GB RAM for parallel test execution
+
+**Alternative Docker Runtimes**:
+- [Colima](https://github.com/abiosoft/colima) (macOS/Linux)
+- [Rancher Desktop](https://rancherdesktop.io/)
+
+### Running Framework Tests
+
+```bash
+# Unit tests only (no Docker required)
+./scripts/test-unit.sh
+
+# Component tests (requires Docker)
+./scripts/test-component.sh
+
+# All tests
+./scripts/test-all.sh
+
+# Coverage report
+./scripts/test-coverage.sh
+```
+
+### Environment Isolation (Kubernetes Users)
+
+If you run Kubernetes locally (Docker Desktop, minikube, etc.), you may experience resource conflicts with Testcontainers. See [ADR-TESTING-004](docs/architecture/adr/ADR-TESTING-004-testcontainers-kubernetes-isolation.md) for the recommended isolation approach.
+
+**Quick solution**:
+```bash
+# Scale down K8s before running component tests
+./scripts/k8s-scale.sh down
+
+# Run tests
+./scripts/test-component.sh
+
+# Scale K8s back up
+./scripts/k8s-scale.sh up
+```
+
+### Testcontainers Troubleshooting
+
+For Docker and Testcontainers issues during framework development, see [Framework Testing Guide](docs/dev/FRAMEWORK-TESTING.md).
 
 ## How to Contribute
 

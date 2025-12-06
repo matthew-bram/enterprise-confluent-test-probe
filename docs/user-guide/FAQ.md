@@ -23,27 +23,28 @@ Test-Probe is an enterprise-grade testing framework for Apache Kafka and event-d
 ### Why should I use Test-Probe instead of writing custom test code?
 
 **Test-Probe provides:**
-- Automatic Kafka infrastructure via Testcontainers (no manual setup)
+- Connect to your existing Kafka clusters (no infrastructure setup)
 - Built-in step definitions for common Kafka operations
 - High-performance actor-based execution (concurrent tests)
 - Automatic test evidence generation for compliance
 - Multi-format serialization (JSON, Avro, Protobuf) out-of-the-box
 - Multi-cluster support for complex topologies
+- Multi-cloud vault integration (AWS, Azure, GCP)
 
 **Without Test-Probe, you'd need to:**
-- Manually set up Kafka test infrastructure
 - Write boilerplate producer/consumer code for each test
 - Implement JSONPath matching and event verification
 - Handle async event polling and timeouts
 - Generate test reports manually
+- Build your own credential management
 
 ### What technologies does Test-Probe use?
 
 - **Apache Pekko Typed Actors**: High-performance concurrent execution
 - **Cucumber/Gherkin**: Business-readable test specifications
-- **Testcontainers**: Docker-based Kafka instances for testing
 - **Apache Kafka**: Native Kafka client integration
 - **Confluent Schema Registry**: Avro and Protobuf schema management
+- **Multi-cloud Vaults**: AWS Secrets Manager, Azure Key Vault, GCP Secret Manager
 - **Scala 3.3.6**: Type-safe implementation
 
 ### Is Test-Probe production-ready?
@@ -67,48 +68,24 @@ Test-Probe supports both **Java** and **Scala**:
 **Required:**
 - Java JDK 21+ (OpenJDK, Oracle JDK, or Amazon Corretto)
 - Maven 3.9+
-- Docker Desktop 4.x+ or compatible runtime (Colima, Rancher Desktop)
-- Minimum 8GB RAM allocated to Docker
+- Access to a Kafka cluster (Confluent Platform, AWS MSK, Azure Event Hubs, etc.)
+- Schema Registry access (Confluent Schema Registry)
 
 **Recommended:**
-- 16GB RAM allocated to Docker (for parallel test execution)
-- 20GB free disk space
-- SSD storage for faster container startup
+- Vault access for secure credential management (AWS Secrets Manager, Azure Key Vault, or GCP Secret Manager)
+- Evidence storage configured (S3, Azure Blob, GCS, or local filesystem)
+
+### Do I need Docker to use Test-Probe?
+
+**No**, Docker is not required to use Test-Probe. Users connect directly to their real Kafka clusters.
+
+> **Note for contributors**: If you're contributing to Test-Probe framework development, Docker is required for running the framework's internal component tests. See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup.
 
 ### Do I need Kubernetes to use Test-Probe?
 
-**No**, Kubernetes is not required. Test-Probe uses **Testcontainers** which only requires:
-- Docker CLI (`docker` command)
-- Docker daemon (container runtime)
+**No**, Kubernetes is not required. Test-Probe connects directly to your Kafka clusters via bootstrap servers.
 
-Kubernetes is mentioned in the build scripts for managing local development Kafka clusters, but it's optional and not needed for running tests.
-
-### How do I install Docker for Test-Probe?
-
-Choose one of these options:
-
-1. **Docker Desktop** (Easiest, requires license for enterprises)
-   - Download from: https://www.docker.com/products/docker-desktop
-   - Free for personal use, education, and small businesses
-
-2. **Colima** (Free, macOS only)
-   ```bash
-   brew install colima
-   colima start
-   ```
-
-3. **Rancher Desktop** (Free, cross-platform)
-   - Download from: https://rancherdesktop.io/
-   - Configure: Preferences → Container Runtime → dockerd (moby)
-
-See [Kafka Environment Setup](../testing-practice/kafka-env-setup.md) for detailed instructions.
-
-### Can I run Test-Probe without Docker?
-
-No, Test-Probe requires Docker for Testcontainers. However, you can:
-- Use a remote Kafka cluster for testing (not recommended for CI/CD)
-- Mock Kafka in unit tests (outside Test-Probe framework)
-- Use Testcontainers Cloud (cloud-based Docker runtime)
+Kubernetes is only relevant if your Kafka cluster happens to be deployed on Kubernetes, but Test-Probe doesn't need to know about your cluster's deployment method.
 
 ### How do I add Test-Probe to my existing Maven project?
 
@@ -144,19 +121,25 @@ Test-Probe uses **Apache Kafka 3.x** client libraries and is tested against:
 
 It should work with any Kafka 3.x cluster.
 
-### Can I test against a real Kafka cluster instead of Testcontainers?
+### How do I connect to my Kafka cluster?
 
-Yes, you can configure Test-Probe to use an existing Kafka cluster:
+Test-Probe is designed to connect to your real Kafka clusters. Configure your connection in `application.conf`:
 
-```gherkin
-Given I have a topic "orders" with bootstrap servers "my-kafka-cluster:9092"
+```hocon
+test-probe {
+  kafka {
+    bootstrap-servers = "my-kafka-cluster:9092"
+    schema-registry-url = "https://schema-registry:8081"
+  }
+}
 ```
 
-However, **Testcontainers is recommended** because:
-- Isolated test environment (no data pollution)
-- Consistent test execution (no external dependencies)
-- Works in CI/CD without infrastructure setup
-- Automatic cleanup after tests
+Or override via environment variables:
+```bash
+export KAFKA_BOOTSTRAP_SERVERS="my-kafka-cluster:9092"
+```
+
+See [Getting Started - Connecting to Your Kafka Cluster](GETTING-STARTED.md#connecting-to-your-kafka-cluster) for authentication examples.
 
 ### How do I test multiple Kafka clusters?
 
@@ -205,7 +188,7 @@ Given I have a topic "my-topic" with 3 partitions
 
 ### How do I clean up topics between tests?
 
-Testcontainers creates a fresh Kafka instance for each test run, so topics are automatically cleaned up. If using a real cluster, implement cleanup in `@After` hooks:
+When testing against real clusters, implement cleanup in `@After` hooks:
 
 ```java
 @After
@@ -214,6 +197,11 @@ public void cleanup() {
     adminClient.deleteTopics(Arrays.asList("test-topic-1", "test-topic-2"));
 }
 ```
+
+**Best practices for integration environments:**
+- Use unique topic names per test run (e.g., `test-orders-{timestamp}`)
+- Use dedicated test namespaces/prefixes (e.g., `sit-test-*`)
+- Configure topic retention for automatic cleanup
 
 ---
 
@@ -302,29 +290,30 @@ Then I should receive 2 events from topic "orders" within 10 seconds
    - Use mocks for external dependencies
    - Run in milliseconds
 
-2. **Component Tests** (20%): Test with real Kafka (Testcontainers)
+2. **Integration Tests** (20%): Test against real Kafka clusters
    - Test Kafka producer/consumer logic
    - Verify serialization/deserialization
-   - Run in seconds
+   - Validate event flows in SIT/UAT environments
+   - Run in seconds to minutes
 
-3. **Integration Tests** (10%): End-to-end system tests
-   - Test complete event flows
-   - Verify system behavior
-   - Run in minutes
+3. **End-to-End Tests** (10%): Full system validation
+   - Test complete event flows across services
+   - Verify cross-cell/cross-service contracts
+   - Run in CD pipelines
 
-Test-Probe is primarily for **component and integration tests**.
+Test-Probe is primarily for **integration and end-to-end tests** against real clusters.
 
 ### How long do tests take to run?
 
 **Typical execution times**:
-- First run: 3-5 minutes (includes Docker image download)
-- Subsequent runs: 2-3 minutes (cached images)
-- Per test scenario: 30-60 seconds
+- Per test scenario: 10-60 seconds (depends on event flow complexity)
+- Full test suite: Varies by environment and network latency
 
 **Performance tips**:
 - Run unit tests frequently (fast feedback)
-- Run component tests before commits
-- Run full integration suite in CI/CD
+- Run integration tests before commits
+- Run full test suite in CI/CD pipelines
+- Consider network latency to your Kafka cluster
 
 ### Can I run tests in parallel?
 
@@ -338,12 +327,10 @@ Yes, Test-Probe supports parallel test execution:
 </configuration>
 ```
 
-**Requirements for parallel execution**:
-- 16GB RAM allocated to Docker
-- Fast SSD storage
-- CPU with 4+ cores
-
-See [scripts/README.md](../../scripts/README.md#performance-baselines) for benchmarks.
+**Considerations for parallel execution**:
+- Ensure your Kafka cluster can handle concurrent connections
+- Use unique consumer group IDs per test thread
+- Consider topic partitioning for parallel consumption
 
 ### How do I test asynchronous event flows?
 
@@ -385,22 +372,19 @@ Scenario: Verify event ordering
 
 Common causes:
 
-1. **First run**: Docker image download (one-time cost)
-   - Solution: Pre-pull images: `docker pull confluentinc/cp-kafka:7.6.0`
+1. **Network latency**: Distance to your Kafka cluster
+   - Solution: Use a cluster in the same region as your CI/CD runners
 
-2. **Insufficient Docker RAM**: Containers swapping to disk
-   - Solution: Allocate 8GB+ RAM to Docker
-
-3. **K8s conflicts**: Local Kafka cluster competing for resources
-   - Solution: Scale down K8s before tests: `./scripts/k8s-scale.sh down`
-
-4. **Long timeouts**: Tests waiting for events that never arrive
+2. **Long timeouts**: Tests waiting for events that never arrive
    - Solution: Reduce timeouts or fix event production logic
 
-5. **Sequential execution**: Running tests one at a time
-   - Solution: Enable parallel execution (requires 16GB RAM)
+3. **Sequential execution**: Running tests one at a time
+   - Solution: Enable parallel execution
 
-See [Troubleshooting - Test Performance](TROUBLESHOOTING.md#tests-running-slowly).
+4. **Cluster throttling**: Kafka cluster rate limiting
+   - Solution: Check cluster quotas and adjust test concurrency
+
+See [Troubleshooting](TROUBLESHOOTING.md) for more solutions.
 
 ### How can I speed up tests?
 
@@ -409,26 +393,24 @@ See [Troubleshooting - Test Performance](TROUBLESHOOTING.md#tests-running-slowly
 # Fast: Unit tests only (~30 seconds)
 ./scripts/test-unit.sh -m core
 
-# Medium: Component tests (~3 minutes)
-./scripts/test-component.sh -m core
-
-# Slow: All tests (~5 minutes)
-./scripts/test-all.sh -m core
+# Integration tests: Against your cluster
+mvn test -Pintegration
 ```
 
 **CI/CD optimizations**:
-- Cache Docker images between builds
-- Run tests in parallel (4 threads)
+- Use a Kafka cluster close to your CI/CD runners
+- Run tests in parallel
 - Use faster CI runners (more CPU/RAM)
+- Reuse Kafka connections across tests
 
 ### How many concurrent tests can I run?
 
-**Limits based on Docker RAM**:
-- 8GB RAM: 1-2 concurrent test scenarios
-- 16GB RAM: 4 concurrent test scenarios (recommended)
-- 32GB RAM: 8+ concurrent test scenarios
+This depends on your Kafka cluster capacity:
+- Check your cluster's connection limits
+- Monitor consumer group count
+- Consider partition count per topic
 
-Test-Probe's core module runs 4 threads in parallel by default (optimized for 16GB RAM).
+Test-Probe's actor-based architecture supports high concurrency, limited mainly by your cluster's capacity.
 
 ---
 
@@ -468,19 +450,19 @@ jobs:
 test:
   stage: test
   image: maven:3.9-eclipse-temurin-21
-  services:
-    - docker:24-dind
   variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_CERTDIR: "/certs"
+    KAFKA_BOOTSTRAP_SERVERS: $CI_KAFKA_BOOTSTRAP_SERVERS
+    SCHEMA_REGISTRY_URL: $CI_SCHEMA_REGISTRY_URL
+    VAULT_PROVIDER: aws
+    VAULT_SECRET_ID: kafka-credentials
   script:
-    - ./scripts/build-ci.sh
+    - mvn test -Pintegration
   artifacts:
     reports:
       junit: '**/target/surefire-reports/TEST-*.xml'
 ```
 
-See [Kafka Environment Setup - CI/CD](../testing-practice/kafka-env-setup.md#cicd-setup-gitlab).
+Configure `CI_KAFKA_BOOTSTRAP_SERVERS` and `CI_SCHEMA_REGISTRY_URL` as CI/CD variables pointing to your integration environment.
 
 ### How do I publish test reports?
 
@@ -531,4 +513,4 @@ Instead:
 - Test-Probe version
 - Feature file (Gherkin)
 - Error message and stack trace
-- Docker version and allocated RAM
+- Kafka cluster type and version

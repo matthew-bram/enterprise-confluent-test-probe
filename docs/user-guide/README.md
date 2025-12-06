@@ -2,66 +2,96 @@
 
 Welcome to the Test-Probe user documentation. This guide will help you get started with event-driven architecture testing using Test-Probe.
 
+## Overview
+
+Test-Probe is a **REST API service** that enables teams to validate event-driven system behaviors against real Kafka clusters. You write Gherkin feature files, submit them via API, and receive test results with evidence.
+
+```
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│   Your CI/CD    │         │   Test-Probe    │         │   Your Kafka    │
+│   Pipeline      │◀───────▶│   Service       │◀───────▶│   Cluster       │
+└─────────────────┘  REST   └─────────────────┘  Kafka  └─────────────────┘
+```
+
 ## Getting Started
 
 New to Test-Probe? Start here:
 
-1. **[Getting Started Guide](GETTING-STARTED.md)** - Complete tutorial from installation to your first tests
-   - Prerequisites and installation
-   - Your first test (5-minute quickstart)
-   - Understanding the framework
-   - Advanced topics
+1. **[Getting Started Guide](GETTING-STARTED.md)** - Complete guide to using Test-Probe
+   - Prerequisites and cluster configuration
+   - Connecting to your Kafka cluster
+   - Authentication and vault integration
+   - Understanding test patterns (CQRS, CQERS)
 
-## Core Concepts
+2. **[Tutorial: Your First Test](tutorials/01-first-test.md)** - Step-by-step tutorial
+   - Write a Gherkin feature file
+   - Submit to Test-Probe API
+   - Poll for results
+   - Review evidence
 
-Understanding Test-Probe fundamentals:
+## CI/CD Integration
 
-- **[Builder Pattern Guide](BUILDER-PATTERN.md)** - How to bootstrap the Test-Probe framework
-  - ServiceDsl API reference
-  - Compile-time safety with phantom types
-  - Three-phase module lifecycle (preFlight → initialize → finalCheck)
-  - Module implementations (Config, ActorSystem, Storage, Vault, Interface)
-  - Complete production examples
-  - **START HERE** if you're integrating Test-Probe into your application
+- **[CI/CD Pipeline Integration](integration/ci-cd-pipelines.md)** - Integrate Test-Probe into your pipelines
+  - REST API workflow (initialize → deploy → start → poll)
+  - GitHub Actions examples
+  - GitLab CI examples
+  - Jenkins Pipeline examples
+  - Quality gates and evidence collection
+
+## Tutorials
+
+Step-by-step tutorials for common scenarios:
+
+| Tutorial | Description |
+|----------|-------------|
+| [01: Your First Test](tutorials/01-first-test.md) | Write and submit your first test |
+| [02: JSON Events](tutorials/02-json-events.md) | Work with JSON serialization *(updating)* |
+| [03: Avro & Protobuf](tutorials/03-avro-protobuf.md) | Schema-based serialization *(updating)* |
+| [04: Multi-Cluster](tutorials/04-multi-cluster.md) | Cross-datacenter testing *(updating)* |
 
 ## Reference Documentation
 
-- **[FAQ](FAQ.md)** - Frequently asked questions about Test-Probe
-  - General framework questions
-  - Installation and setup
-  - Kafka-specific questions
+- **[FAQ](FAQ.md)** - Frequently asked questions
+  - What is Test-Probe?
+  - System requirements
+  - Kafka connection questions
   - Serialization formats
 
 - **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Solutions to common issues
-  - Docker and Testcontainers issues
   - Kafka connection problems
+  - Authentication issues
   - Schema Registry errors
   - Test timeout issues
 
-## Additional Resources
+## For Framework Contributors
 
-### Architecture Documentation
-- [Product Requirements Document](../product/PRODUCT-REQUIREMENTS-DOCUMENT.md) - Complete PRD
+If you're contributing to the Test-Probe framework itself:
+
+- **[Contributing Guide](../../CONTRIBUTING.md)** - Contribution workflow
+- **[Framework Testing Guide](../dev/FRAMEWORK-TESTING.md)** - Running framework tests (Docker/Testcontainers)
+- **[Build Scripts](../../scripts/README.md)** - Build automation for framework development
+
+## Architecture Documentation
+
 - [Architecture Guides](../architecture/) - System architecture and ADRs
-
-### Developer Documentation
-- [Contributing Guide](../../CONTRIBUTING.md) - How to contribute
-- [Build Scripts](../../scripts/README.md) - Build automation
-- [Development Guide](../../.claude/guides/DEVELOPMENT.md) - Developer workflow
+- [API Reference (OpenAPI)](../../test-probe-interfaces/src/main/resources/openapi.yaml) - REST API specification
 
 ## Quick Links
 
 ### Common Tasks
-- [Write your first test](#) → See [Getting Started](GETTING-STARTED.md#your-first-test)
-- [Configure multiple Kafka clusters](#) → See [Getting Started](GETTING-STARTED.md#multiple-kafka-clusters)
-- [Use Avro serialization](#) → See [Getting Started](GETTING-STARTED.md#avro-serialization)
-- [Debug test failures](#) → See [Troubleshooting](TROUBLESHOOTING.md#test-failures)
+
+| Task | Documentation |
+|------|---------------|
+| Write your first test | [Tutorial 1](tutorials/01-first-test.md) |
+| Configure Kafka connection | [Getting Started](GETTING-STARTED.md#connecting-to-your-kafka-cluster) |
+| Integrate with CI/CD | [CI/CD Pipelines](integration/ci-cd-pipelines.md) |
+| Debug test failures | [Troubleshooting](TROUBLESHOOTING.md) |
 
 ### Support
+
 - **Issues**: Report bugs or request features via GitHub Issues
 - **Discussions**: Ask questions or share ideas via GitHub Discussions
-- **Documentation**: Browse the full documentation at `docs/`
 
 ---
 
-**Happy Testing!**
+**Last Updated:** 2025-12-05

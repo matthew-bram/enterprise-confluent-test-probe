@@ -1,392 +1,514 @@
 # CI/CD Pipeline Integration
 
-**Version:** 1.0.0
-**Last Updated:** 2025-11-26
-**Target Audience:** DevOps engineers and developers setting up automated testing
+**Version:** 2.0.0
+**Last Updated:** 2025-12-05
+**Target Audience:** DevOps engineers and developers integrating Test-Probe into automated pipelines
 
 ---
 
+Test-Probe exposes a REST API that CI/CD pipelines interact with to orchestrate test execution. This guide covers the integration workflow and provides examples for common CI platforms.
+
 ## Table of Contents
 
-1. [GitHub Actions](#github-actions)
-2. [GitLab CI](#gitlab-ci)
-3. [Jenkins Pipeline](#jenkins-pipeline)
-4. [Docker-in-Docker for Testcontainers](#docker-in-docker-for-testcontainers)
-5. [Test Report Publishing](#test-report-publishing)
-6. [Parallel Test Execution](#parallel-test-execution)
-7. [Artifact Collection](#artifact-collection)
+1. [Integration Overview](#integration-overview)
+2. [API Flow](#api-flow)
+3. [GitHub Actions](#github-actions)
+4. [GitLab CI](#gitlab-ci)
+5. [Jenkins Pipeline](#jenkins-pipeline)
+6. [Quality Gates](#quality-gates)
+7. [Evidence Collection](#evidence-collection)
+8. [Troubleshooting](#troubleshooting)
+
+---
+
+## Integration Overview
+
+Test-Probe runs as a service (Docker container or Kubernetes deployment) that your CI/CD pipeline communicates with via REST API. The pipeline:
+
+1. Initializes a test session
+2. Deploys test assets to block storage
+3. Triggers test execution
+4. Polls for completion
+5. Acts on the result (quality gate)
+
+```
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│   CI/CD         │         │   Test-Probe    │         │   Your Kafka    │
+│   Pipeline      │◀───────▶│   Service       │◀───────▶│   Cluster       │
+└─────────────────┘  REST   └─────────────────┘  Kafka  └─────────────────┘
+        │                            │
+        │                            │
+        ▼                            ▼
+┌─────────────────┐         ┌─────────────────┐
+│   S3 / Block    │◀────────│   Evidence      │
+│   Storage       │  Upload │   + Results     │
+└─────────────────┘         └─────────────────┘
+```
+
+### Prerequisites
+
+- Test-Probe service deployed and accessible from CI runners
+- Block storage configured (S3, Azure Blob, or GCS)
+- Network access from CI runners to Test-Probe and block storage
+- Test assets: feature files (`.feature`) and configuration (`test-config.yaml`)
+
+---
+
+## API Flow
+
+### Step 1: Initialize Test
+
+```bash
+curl -X POST https://test-probe.example.com/api/v1/test/initialize \
+  -H "Content-Type: application/json"
+```
+
+**Response:**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Step 2: Deploy Test Assets
+
+Upload your feature files and configuration to the block storage path using the test ID:
+
+```bash
+# Create directory structure
+aws s3 cp ./features/ s3://test-bucket/tests/${TEST_ID}/features/ --recursive
+aws s3 cp ./test-config.yaml s3://test-bucket/tests/${TEST_ID}/test-config.yaml
+```
+
+**Expected structure:**
+```
+s3://test-bucket/tests/{test-id}/
+├── features/
+│   ├── order-processing.feature
+│   └── inventory-sync.feature
+└── test-config.yaml
+```
+
+### Step 3: Start Test Execution
+
+```bash
+curl -X POST https://test-probe.example.com/api/v1/test/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "test-id": "550e8400-e29b-41d4-a716-446655440000",
+    "block-storage-path": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+    "test-type": "integration"
+  }'
+```
+
+**Response:**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "accepted": true,
+  "test-type": "integration"
+}
+```
+
+### Step 4: Poll for Status
+
+```bash
+curl https://test-probe.example.com/api/v1/test/550e8400-e29b-41d4-a716-446655440000/status
+```
+
+**Test FSM States:**
+- `Setup` - Test initialized, awaiting start
+- `Loading` - Loading test bundle from block storage
+- `Loaded` - Test loaded and ready for execution
+- `Testing` - Test currently executing
+- `Completed` - Test completed (check `success` field)
+- `Exception` - Test failed with error
+
+**Loading (test bundle being fetched):**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Loading",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration"
+}
+```
+
+**Testing (execution in progress):**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Testing",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z"
+}
+```
+
+**Completed (tests passed):**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Completed",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z",
+  "end-time": "2025-12-05T14:32:15Z",
+  "success": true
+}
+```
+
+**Completed (tests failed):**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Completed",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z",
+  "end-time": "2025-12-05T14:31:45Z",
+  "success": false,
+  "error": "2 scenarios failed - see evidence for details"
+}
+```
+
+**Exception (execution error):**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Exception",
+  "bucket": "s3://test-bucket/tests/550e8400-e29b-41d4-a716-446655440000",
+  "test-type": "integration",
+  "start-time": "2025-12-05T14:30:00Z",
+  "end-time": "2025-12-05T14:31:45Z",
+  "success": false,
+  "error": "Timeout waiting for events on topic orders-created"
+}
+```
+
+### Step 5: Collect Evidence
+
+After completion, evidence is available at the same block storage path:
+
+```
+s3://test-bucket/tests/{test-id}/
+├── features/              # Your test assets (input)
+├── topic-directives.yml   # Your Kafka topic configuration (input)
+└── evidence/              # Generated evidence (output)
+    └── cucumber.json      # Cucumber test execution report
+```
 
 ---
 
 ## GitHub Actions
 
-Complete GitHub Actions workflow with Test-Probe integration:
+### Complete Workflow
 
-### Basic Workflow
-
-`.github/workflows/test.yml`:
+`.github/workflows/test-probe.yml`:
 
 ```yaml
-name: Test-Probe CI
+name: Test-Probe Integration Tests
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 env:
-  MAVEN_OPTS: -Xmx2048m
-  JAVA_VERSION: '21'
+  TEST_PROBE_URL: ${{ secrets.TEST_PROBE_URL }}
+  S3_BUCKET: ${{ secrets.TEST_ASSETS_BUCKET }}
 
 jobs:
-  unit-tests:
-    name: Unit Tests
+  integration-test:
+    name: Run Integration Tests
     runs-on: ubuntu-latest
+    environment: integration
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: 'maven'
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-      - name: Run unit tests
-        run: mvn test -Punit-only -B
-
-      - name: Upload unit test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: unit-test-results
-          path: '**/target/surefire-reports/*.xml'
-
-  component-tests:
-    name: Component Tests
-    runs-on: ubuntu-latest
-    needs: unit-tests  # Run after unit tests pass
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Start Docker
+      - name: Initialize Test Session
+        id: init
         run: |
-          sudo systemctl start docker
-          docker --version
+          RESPONSE=$(curl -sf -X POST "${TEST_PROBE_URL}/api/v1/test/initialize" \
+            -H "Content-Type: application/json")
+          TEST_ID=$(echo "$RESPONSE" | jq -r '.["test-id"]')
+          echo "test-id=${TEST_ID}" >> $GITHUB_OUTPUT
+          echo "Initialized test session: ${TEST_ID}"
 
-      - name: Run component tests
-        run: mvn test -Pcomponent-only -B
+      - name: Deploy Test Assets
+        run: |
+          TEST_ID="${{ steps.init.outputs.test-id }}"
+          S3_PATH="s3://${S3_BUCKET}/tests/${TEST_ID}"
 
-      - name: Upload component test results
+          # Upload feature files
+          aws s3 cp ./tests/features/ "${S3_PATH}/features/" --recursive
+
+          # Upload configuration
+          aws s3 cp ./tests/test-config.yaml "${S3_PATH}/test-config.yaml"
+
+          echo "Deployed test assets to ${S3_PATH}"
+
+      - name: Start Test Execution
+        run: |
+          TEST_ID="${{ steps.init.outputs.test-id }}"
+          S3_PATH="s3://${S3_BUCKET}/tests/${TEST_ID}"
+
+          RESPONSE=$(curl -sf -X POST "${TEST_PROBE_URL}/api/v1/test/start" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"test-id\": \"${TEST_ID}\",
+              \"block-storage-path\": \"${S3_PATH}\",
+              \"test-type\": \"integration\"
+            }")
+
+          ACCEPTED=$(echo "$RESPONSE" | jq -r '.accepted')
+          if [ "$ACCEPTED" != "true" ]; then
+            echo "Test start rejected: $(echo $RESPONSE | jq -r '.message')"
+            exit 1
+          fi
+
+          echo "Test execution started"
+
+      - name: Poll for Completion
+        id: poll
+        run: |
+          TEST_ID="${{ steps.init.outputs.test-id }}"
+          MAX_WAIT=600  # 10 minutes
+          POLL_INTERVAL=10
+          ELAPSED=0
+
+          while [ $ELAPSED -lt $MAX_WAIT ]; do
+            RESPONSE=$(curl -sf "${TEST_PROBE_URL}/api/v1/test/${TEST_ID}/status")
+            STATE=$(echo "$RESPONSE" | jq -r '.state')
+
+            echo "Status: ${STATE}"
+
+            # Terminal states: Completed or Exception
+            if [ "$STATE" = "Completed" ]; then
+              SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+              if [ "$SUCCESS" = "true" ]; then
+                echo "result=passed" >> $GITHUB_OUTPUT
+                echo "Test completed successfully"
+                exit 0
+              else
+                ERROR=$(echo "$RESPONSE" | jq -r '.error // "Tests failed"')
+                echo "result=failed" >> $GITHUB_OUTPUT
+                echo "Test completed with failures: ${ERROR}"
+                exit 1
+              fi
+            elif [ "$STATE" = "Exception" ]; then
+              ERROR=$(echo "$RESPONSE" | jq -r '.error')
+              echo "result=failed" >> $GITHUB_OUTPUT
+              echo "Test exception: ${ERROR}"
+              exit 1
+            fi
+
+            # In-progress states: Setup, Loading, Loaded, Testing
+            sleep $POLL_INTERVAL
+            ELAPSED=$((ELAPSED + POLL_INTERVAL))
+          done
+
+          echo "Test timed out after ${MAX_WAIT} seconds"
+          exit 1
+
+      - name: Download Evidence
+        if: always()
+        run: |
+          TEST_ID="${{ steps.init.outputs.test-id }}"
+          S3_PATH="s3://${S3_BUCKET}/tests/${TEST_ID}"
+
+          mkdir -p ./evidence
+          aws s3 cp "${S3_PATH}/evidence/" ./evidence/ --recursive || true
+
+      - name: Upload Evidence Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: component-test-results
-          path: |
-            **/target/surefire-reports/*.xml
-            **/target/cucumber-reports/*.html
+          name: test-evidence-${{ steps.init.outputs.test-id }}
+          path: ./evidence/
+          retention-days: 30
 
-      - name: Upload Cucumber reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: cucumber-reports
-          path: '**/target/cucumber-reports/**'
-
-  publish-test-results:
-    name: Publish Test Results
-    runs-on: ubuntu-latest
-    needs: [ unit-tests, component-tests ]
-    if: always()
-
-    steps:
-      - name: Download unit test results
-        uses: actions/download-artifact@v4
-        with:
-          name: unit-test-results
-
-      - name: Download component test results
-        uses: actions/download-artifact@v4
-        with:
-          name: component-test-results
-
-      - name: Publish test results
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: '**/*.xml'
-          check_name: 'Test Results'
-          comment_mode: 'off'
+      - name: Quality Gate
+        if: steps.poll.outputs.result != 'passed'
+        run: |
+          echo "Quality gate failed - tests did not pass"
+          exit 1
 ```
 
-### Advanced Workflow with Coverage
+### Reusable Workflow
 
-`.github/workflows/test-coverage.yml`:
-
-```yaml
-name: Test Coverage
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  coverage:
-    name: Test Coverage Report
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Start Docker
-        run: sudo systemctl start docker
-
-      - name: Run tests with coverage
-        run: mvn clean test scoverage:report -B
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: '**/target/site/scoverage/scoverage.xml'
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: true
-
-      - name: Generate coverage badge
-        uses: cicirello/jacoco-badge-generator@v2
-        with:
-          badges-directory: badges
-          generate-coverage-badge: true
-
-      - name: Upload coverage badge
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-badge
-          path: badges/
-```
-
-### Matrix Build (Multiple Java Versions)
-
-`.github/workflows/matrix-test.yml`:
+`.github/workflows/test-probe-reusable.yml`:
 
 ```yaml
-name: Multi-Version Testing
+name: Test-Probe Reusable Workflow
 
 on:
-  push:
-    branches: [ main ]
+  workflow_call:
+    inputs:
+      test-type:
+        description: 'Type of test to run'
+        required: false
+        default: 'integration'
+        type: string
+      features-path:
+        description: 'Path to feature files'
+        required: false
+        default: './tests/features'
+        type: string
+    secrets:
+      TEST_PROBE_URL:
+        required: true
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      TEST_ASSETS_BUCKET:
+        required: true
 
 jobs:
   test:
-    name: Test on Java ${{ matrix.java }}
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        java: [ '17', '21' ]
-      fail-fast: false
+    outputs:
+      test-id: ${{ steps.init.outputs.test-id }}
+      result: ${{ steps.poll.outputs.result }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-          cache: 'maven'
-
-      - name: Start Docker
-        run: sudo systemctl start docker
-
-      - name: Run all tests
-        run: mvn test -B
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results-java-${{ matrix.java }}
-          path: '**/target/surefire-reports/*.xml'
+      # ... (same steps as above, parameterized)
 ```
 
 ---
 
 ## GitLab CI
 
-Complete GitLab CI configuration with Test-Probe integration:
-
-### Basic Pipeline
+### Complete Pipeline
 
 `.gitlab-ci.yml`:
 
 ```yaml
-image: maven:3.9-eclipse-temurin-21
-
 variables:
-  MAVEN_OPTS: "-Xmx2048m -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: "/certs"
+  TEST_PROBE_URL: ${CI_TEST_PROBE_URL}
+  S3_BUCKET: ${CI_TEST_ASSETS_BUCKET}
 
 stages:
-  - build
   - test
   - report
 
-cache:
-  paths:
-    - .m2/repository/
-    - target/
-
-compile:
-  stage: build
-  script:
-    - mvn compile -B -DskipTests
-  artifacts:
-    paths:
-      - target/
-    expire_in: 1 hour
-
-unit-tests:
+integration-test:
   stage: test
-  needs: [ compile ]
-  script:
-    - mvn test -Punit-only -B
-  artifacts:
-    when: always
-    reports:
-      junit:
-        - '**/target/surefire-reports/TEST-*.xml'
-    paths:
-      - '**/target/surefire-reports/'
-    expire_in: 1 week
-
-component-tests:
-  stage: test
-  needs: [ compile ]
-  services:
-    - docker:24-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
-    TESTCONTAINERS_HOST_OVERRIDE: docker
+  image: amazon/aws-cli:latest
+  environment: integration
   before_script:
-    - apt-get update && apt-get install -y docker.io
+    - yum install -y jq
   script:
-    - mvn test -Pcomponent-only -B
+    # Initialize test session
+    - |
+      RESPONSE=$(curl -sf -X POST "${TEST_PROBE_URL}/api/v1/test/initialize" \
+        -H "Content-Type: application/json")
+      TEST_ID=$(echo "$RESPONSE" | jq -r '.["test-id"]')
+      echo "TEST_ID=${TEST_ID}" >> test.env
+      echo "Initialized test session: ${TEST_ID}"
+
+    # Deploy test assets
+    - |
+      source test.env
+      S3_PATH="s3://${S3_BUCKET}/tests/${TEST_ID}"
+      aws s3 cp ./tests/features/ "${S3_PATH}/features/" --recursive
+      aws s3 cp ./tests/test-config.yaml "${S3_PATH}/test-config.yaml"
+
+    # Start test execution
+    - |
+      source test.env
+      S3_PATH="s3://${S3_BUCKET}/tests/${TEST_ID}"
+      RESPONSE=$(curl -sf -X POST "${TEST_PROBE_URL}/api/v1/test/start" \
+        -H "Content-Type: application/json" \
+        -d "{
+          \"test-id\": \"${TEST_ID}\",
+          \"block-storage-path\": \"${S3_PATH}\",
+          \"test-type\": \"integration\"
+        }")
+      ACCEPTED=$(echo "$RESPONSE" | jq -r '.accepted')
+      [ "$ACCEPTED" = "true" ] || exit 1
+
+    # Poll for completion
+    - |
+      source test.env
+      MAX_WAIT=600
+      ELAPSED=0
+      while [ $ELAPSED -lt $MAX_WAIT ]; do
+        RESPONSE=$(curl -sf "${TEST_PROBE_URL}/api/v1/test/${TEST_ID}/status")
+        STATE=$(echo "$RESPONSE" | jq -r '.state')
+        echo "Status: ${STATE}"
+
+        # Terminal states: Completed or Exception
+        if [ "$STATE" = "Completed" ]; then
+          SUCCESS=$(echo "$RESPONSE" | jq -r '.success')
+          if [ "$SUCCESS" = "true" ]; then
+            echo "RESULT=passed" >> test.env
+            exit 0
+          else
+            echo "RESULT=failed" >> test.env
+            exit 1
+          fi
+        elif [ "$STATE" = "Exception" ]; then
+          echo "RESULT=failed" >> test.env
+          exit 1
+        fi
+
+        # In-progress states: Setup, Loading, Loaded, Testing
+        sleep 10
+        ELAPSED=$((ELAPSED + 10))
+      done
+      exit 1
+
+  after_script:
+    # Download evidence
+    - |
+      source test.env || true
+      if [ -n "$TEST_ID" ]; then
+        mkdir -p ./evidence
+        aws s3 cp "s3://${S3_BUCKET}/tests/${TEST_ID}/evidence/" ./evidence/ --recursive || true
+      fi
+
   artifacts:
     when: always
-    reports:
-      junit:
-        - '**/target/surefire-reports/TEST-*.xml'
     paths:
-      - '**/target/surefire-reports/'
-      - '**/target/cucumber-reports/'
-    expire_in: 1 week
-
-coverage:
-  stage: report
-  needs: [ unit-tests, component-tests ]
-  script:
-    - mvn scoverage:report -B
-  coverage: '/Statement Coverage: ([0-9.]+)%/'
-  artifacts:
+      - evidence/
     reports:
-      coverage_report:
-        coverage_format: cobertura
-        path: '**/target/site/scoverage/cobertura.xml'
-    paths:
-      - '**/target/site/scoverage/'
+      junit: evidence/junit-report.xml
     expire_in: 1 month
-```
 
-### Advanced Pipeline with Parallel Execution
-
-```yaml
-image: maven:3.9-eclipse-temurin-21
-
-variables:
-  MAVEN_OPTS: "-Xmx2048m"
-
-stages:
-  - build
-  - test-parallel
-  - report
-
-build:
-  stage: build
-  script:
-    - mvn compile -B -DskipTests
-  artifacts:
-    paths:
-      - target/
-    expire_in: 1 hour
-
-.test-template: &test-template
-  stage: test-parallel
-  needs: [ build ]
-  services:
-    - docker:24-dind
-  artifacts:
-    when: always
-    reports:
-      junit:
-        - '**/target/surefire-reports/TEST-*.xml'
-
-unit-tests:
-  <<: *test-template
-  script:
-    - mvn test -Punit-only -B
-
-component-tests-module1:
-  <<: *test-template
-  script:
-    - mvn test -Pcomponent-only -pl module1 -B
-
-component-tests-module2:
-  <<: *test-template
-  script:
-    - mvn test -Pcomponent-only -pl module2 -B
-
-aggregate-coverage:
+quality-gate:
   stage: report
-  needs: [ unit-tests, component-tests-module1, component-tests-module2 ]
+  needs: [ integration-test ]
   script:
-    - mvn scoverage:report -Pcoverage-aggregate -B
-  artifacts:
-    paths:
-      - target/site/scoverage/
-    expire_in: 1 month
+    - |
+      # Parse cucumber.json to determine pass/fail
+      if [ -f evidence/cucumber.json ]; then
+        # Check if any step has a non-passed status
+        FAILED=$(jq '[.[].elements[].steps[].result.status] | map(select(. != "passed")) | length' evidence/cucumber.json)
+        if [ "$FAILED" -gt 0 ]; then
+          echo "Quality gate failed: $FAILED steps did not pass"
+          exit 1
+        fi
+        echo "Quality gate passed: all steps passed"
+      fi
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 ```
 
 ---
 
 ## Jenkins Pipeline
-
-Declarative and scripted Jenkins pipelines for Test-Probe:
 
 ### Declarative Pipeline
 
@@ -394,469 +516,292 @@ Declarative and scripted Jenkins pipelines for Test-Probe:
 
 ```groovy
 pipeline {
-    agent {
-        docker {
-            image 'maven:3.9-eclipse-temurin-21'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
+    agent any
 
     environment {
-        MAVEN_OPTS = '-Xmx2048m'
+        TEST_PROBE_URL = credentials('test-probe-url')
+        S3_BUCKET = credentials('test-assets-bucket')
+        AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
     }
 
     options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
         timeout(time: 30, unit: 'MINUTES')
         timestamps()
     }
 
     stages {
-        stage('Checkout') {
+        stage('Initialize Test') {
             steps {
-                checkout scm
-            }
-        }
+                script {
+                    def response = sh(
+                        script: """
+                            curl -sf -X POST "${TEST_PROBE_URL}/api/v1/test/initialize" \
+                                -H "Content-Type: application/json"
+                        """,
+                        returnStdout: true
+                    ).trim()
 
-        stage('Compile') {
-            steps {
-                sh 'mvn compile -B -DskipTests'
-            }
-        }
-
-        stage('Unit Tests') {
-            steps {
-                sh 'mvn test -Punit-only -B'
-            }
-            post {
-                always {
-                    junit '**/target/surefire-reports/TEST-*.xml'
+                    def json = readJSON text: response
+                    env.TEST_ID = json['test-id']
+                    echo "Initialized test session: ${env.TEST_ID}"
                 }
             }
         }
 
-        stage('Component Tests') {
+        stage('Deploy Test Assets') {
             steps {
-                sh 'mvn test -Pcomponent-only -B'
+                sh """
+                    S3_PATH="s3://${S3_BUCKET}/tests/${TEST_ID}"
+                    aws s3 cp ./tests/features/ "\${S3_PATH}/features/" --recursive
+                    aws s3 cp ./tests/test-config.yaml "\${S3_PATH}/test-config.yaml"
+                """
             }
-            post {
-                always {
-                    junit '**/target/surefire-reports/TEST-*.xml'
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'target/cucumber-reports',
-                        reportFiles: 'index.html',
-                        reportName: 'Cucumber Report'
-                    ])
+        }
+
+        stage('Start Test Execution') {
+            steps {
+                script {
+                    def s3Path = "s3://${S3_BUCKET}/tests/${TEST_ID}"
+                    def response = sh(
+                        script: """
+                            curl -sf -X POST "${TEST_PROBE_URL}/api/v1/test/start" \
+                                -H "Content-Type: application/json" \
+                                -d '{
+                                    "test-id": "${TEST_ID}",
+                                    "block-storage-path": "${s3Path}",
+                                    "test-type": "integration"
+                                }'
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    def json = readJSON text: response
+                    if (!json.accepted) {
+                        error "Test start rejected: ${json.message}"
+                    }
                 }
             }
         }
 
-        stage('Coverage Report') {
+        stage('Poll for Completion') {
             steps {
-                sh 'mvn scoverage:report -B'
-            }
-            post {
-                success {
-                    publishHTML([
-                        allowMissing: false,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: 'target/site/scoverage',
-                        reportFiles: 'index.html',
-                        reportName: 'Coverage Report'
-                    ])
+                script {
+                    def maxWait = 600  // 10 minutes
+                    def pollInterval = 10
+                    def elapsed = 0
+                    def testPassed = false
+
+                    while (elapsed < maxWait) {
+                        def response = sh(
+                            script: "curl -sf '${TEST_PROBE_URL}/api/v1/test/${TEST_ID}/status'",
+                            returnStdout: true
+                        ).trim()
+
+                        def json = readJSON text: response
+                        echo "Status: ${json.state}"
+
+                        // Terminal states: Completed or Exception
+                        if (json.state == 'Completed') {
+                            if (json.success == true) {
+                                testPassed = true
+                                echo "Test completed successfully"
+                            } else {
+                                error "Test completed with failures: ${json.error ?: 'Tests failed'}"
+                            }
+                            break
+                        } else if (json.state == 'Exception') {
+                            error "Test exception: ${json.error}"
+                        }
+
+                        // In-progress states: Setup, Loading, Loaded, Testing
+                        sleep pollInterval
+                        elapsed += pollInterval
+                    }
+
+                    if (!testPassed && elapsed >= maxWait) {
+                        error "Test timed out after ${maxWait} seconds"
+                    }
+
+                    env.TEST_PASSED = testPassed.toString()
                 }
+            }
+        }
+
+        stage('Download Evidence') {
+            steps {
+                sh """
+                    mkdir -p ./evidence
+                    aws s3 cp "s3://${S3_BUCKET}/tests/${TEST_ID}/evidence/" ./evidence/ --recursive || true
+                """
             }
         }
     }
 
     post {
         always {
-            cleanWs()
+            archiveArtifacts artifacts: 'evidence/**', allowEmptyArchive: true
+
+            publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'evidence',
+                reportFiles: 'cucumber-report.html',
+                reportName: 'Test Evidence Report'
+            ])
         }
+
         success {
-            echo 'Pipeline succeeded!'
+            echo "Pipeline succeeded - all tests passed"
         }
+
         failure {
-            echo 'Pipeline failed!'
-            // Send notification (Slack, email, etc.)
+            echo "Pipeline failed - check test evidence for details"
         }
     }
 }
 ```
 
-### Scripted Pipeline with Parallel Stages
-
-```groovy
-node {
-    def mvnHome = tool 'Maven 3.9'
-    def javaHome = tool 'JDK 21'
-
-    env.MAVEN_OPTS = '-Xmx2048m'
-    env.JAVA_HOME = javaHome
-
-    stage('Checkout') {
-        checkout scm
-    }
-
-    stage('Compile') {
-        sh "${mvnHome}/bin/mvn compile -B -DskipTests"
-    }
-
-    stage('Parallel Tests') {
-        parallel(
-            'Unit Tests': {
-                sh "${mvnHome}/bin/mvn test -Punit-only -B"
-                junit '**/target/surefire-reports/TEST-*.xml'
-            },
-            'Component Tests - Module 1': {
-                sh "${mvnHome}/bin/mvn test -Pcomponent-only -pl module1 -B"
-                junit 'module1/target/surefire-reports/TEST-*.xml'
-            },
-            'Component Tests - Module 2': {
-                sh "${mvnHome}/bin/mvn test -Pcomponent-only -pl module2 -B"
-                junit 'module2/target/surefire-reports/TEST-*.xml'
-            }
-        )
-    }
-
-    stage('Coverage') {
-        sh "${mvnHome}/bin/mvn scoverage:report -Pcoverage-aggregate -B"
-
-        publishHTML([
-            allowMissing: false,
-            alwaysLinkToLastBuild: true,
-            keepAll: true,
-            reportDir: 'target/site/scoverage',
-            reportFiles: 'index.html',
-            reportName: 'Coverage Report'
-        ])
-    }
-
-    stage('Archive Artifacts') {
-        archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
-        archiveArtifacts artifacts: '**/target/cucumber-reports/**', fingerprint: false
-    }
-}
-```
-
 ---
 
-## Docker-in-Docker for Testcontainers
+## Quality Gates
 
-Testcontainers requires Docker access in CI/CD environments:
+### Using Test Results
 
-### GitHub Actions (Docker Available by Default)
+The test status response includes information you can use for quality gates:
 
-```yaml
-- name: Run component tests
-  run: mvn test -Pcomponent-only -B
-  # Docker is already available on GitHub Actions runners
-```
+| State | `success` Field | Quality Gate Action |
+|-------|-----------------|---------------------|
+| `Completed` | `true` | Pass pipeline |
+| `Completed` | `false` | Fail pipeline (tests failed) |
+| `Exception` | `false` | Fail pipeline (execution error) |
+| Timeout (no terminal state) | N/A | Fail pipeline |
 
-### GitLab CI (Docker-in-Docker)
+**Key fields for quality gate decisions:**
+- `state`: Terminal states are `Completed` and `Exception`
+- `success`: Boolean indicating test pass/fail (only set when `state` is terminal)
+- `error`: Optional error message when `success` is `false`
 
-```yaml
-component-tests:
-  services:
-    - docker:24-dind
-  variables:
-    DOCKER_HOST: tcp://docker:2376
-    DOCKER_TLS_VERIFY: 1
-    DOCKER_CERT_PATH: "$DOCKER_TLS_CERTDIR/client"
-    TESTCONTAINERS_HOST_OVERRIDE: docker
-  script:
-    - mvn test -Pcomponent-only -B
-```
+### Evidence-Based Gates
 
-### Jenkins (Docker Socket Binding)
-
-```groovy
-agent {
-    docker {
-        image 'maven:3.9-eclipse-temurin-21'
-        args '-v /var/run/docker.sock:/var/run/docker.sock'
-    }
-}
-```
-
-### Docker Compose for Local Testing
-
-`docker-compose.ci.yml`:
-
-```yaml
-version: '3.8'
-
-services:
-  maven:
-    image: maven:3.9-eclipse-temurin-21
-    volumes:
-      - .:/app
-      - /var/run/docker.sock:/var/run/docker.sock
-      - maven-cache:/root/.m2
-    working_dir: /app
-    environment:
-      - MAVEN_OPTS=-Xmx2048m
-    command: mvn test -B
-
-volumes:
-  maven-cache:
-```
-
-**Usage:**
+Parse `evidence/cucumber.json` for detailed metrics:
 
 ```bash
-docker-compose -f docker-compose.ci.yml up --abort-on-container-exit
+# Example quality gate script using cucumber.json
+FAILED_STEPS=$(jq '[.[].elements[].steps[].result.status] | map(select(. != "passed")) | length' evidence/cucumber.json)
+TOTAL_SCENARIOS=$(jq '[.[].elements[]] | length' evidence/cucumber.json)
+PASSED_SCENARIOS=$(jq '[.[].elements[] | select(all(.steps[].result.status == "passed"))] | length' evidence/cucumber.json)
+
+echo "Results: ${PASSED_SCENARIOS}/${TOTAL_SCENARIOS} scenarios passed"
+
+if [ "$FAILED_STEPS" -gt 0 ]; then
+  echo "Quality gate failed: ${FAILED_STEPS} steps did not pass"
+  exit 1
+fi
 ```
 
 ---
 
-## Test Report Publishing
+## Evidence Collection
 
-### JUnit XML Reports
+### Evidence Structure
 
-All CI systems support JUnit XML format:
+After test completion, evidence is uploaded to block storage:
 
-```xml
-<!-- Maven Surefire generates reports automatically -->
-<plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-surefire-plugin</artifactId>
-    <configuration>
-        <reportsDirectory>${project.build.directory}/surefire-reports</reportsDirectory>
-    </configuration>
-</plugin>
+```
+s3://bucket/tests/{test-id}/
+├── features/              # Input: Your feature files
+├── topic-directives.yml   # Input: Kafka topic configuration
+└── evidence/              # Output: Generated evidence
+    └── cucumber.json      # Cucumber test execution report
 ```
 
-**Report Location:** `target/surefire-reports/TEST-*.xml`
-
-### Cucumber HTML Reports
-
-Configure Cucumber to generate HTML reports:
-
-`src/test/java/com/mycompany/TestRunner.java`:
-
-```java
-import io.cucumber.junit.Cucumber;
-import io.cucumber.junit.CucumberOptions;
-import org.junit.runner.RunWith;
-
-@RunWith(Cucumber.class)
-@CucumberOptions(
-    features = "src/test/resources/features",
-    glue = "com.mycompany.steps",
-    plugin = {
-        "pretty",
-        "html:target/cucumber-reports/cucumber.html",
-        "json:target/cucumber-reports/cucumber.json",
-        "junit:target/cucumber-reports/cucumber.xml"
-    }
-)
-public class TestRunner {
-}
-```
-
-### Coverage Reports
-
-Scoverage generates HTML and XML coverage reports:
+### Downloading Evidence
 
 ```bash
-mvn scoverage:report
-
-# Reports generated at:
-# - target/site/scoverage/index.html (HTML)
-# - target/site/scoverage/scoverage.xml (XML for CI tools)
-# - target/site/scoverage/cobertura.xml (Cobertura format)
+# Download all evidence
+aws s3 cp "s3://${BUCKET}/tests/${TEST_ID}/evidence/" ./evidence/ --recursive
 ```
 
-### Publishing to SonarQube
+### Long-Term Storage
 
-```yaml
-# GitHub Actions
-- name: SonarQube Scan
-  env:
-    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-  run: |
-    mvn sonar:sonar \
-      -Dsonar.projectKey=my-project \
-      -Dsonar.host.url=https://sonarcloud.io \
-      -Dsonar.organization=my-org \
-      -Dsonar.coverage.jacoco.xmlReportPaths=target/site/scoverage/cobertura.xml
-```
+Evidence remains in block storage for audit and compliance. Configure retention policies on your S3 bucket:
 
----
-
-## Parallel Test Execution
-
-### Maven Parallel Execution
-
-```xml
-<plugin>
-    <groupId>org.apache.maven.plugins</groupId>
-    <artifactId>maven-surefire-plugin</artifactId>
-    <configuration>
-        <!-- Parallel execution -->
-        <parallel>classes</parallel>
-        <threadCount>4</threadCount>
-        <perCoreThreadCount>false</perCoreThreadCount>
-
-        <!-- Testcontainers resource management -->
-        <forkCount>1</forkCount>
-        <reuseForks>false</reuseForks>
-    </configuration>
-</plugin>
-```
-
-**Note:** Test-Probe component tests run **sequentially by default** to avoid Kafka container conflicts. See ADR-CUCUMBER-002.
-
-### CI-Specific Parallelization
-
-Split tests across multiple CI jobs:
-
-**GitHub Actions:**
-
-```yaml
-strategy:
-  matrix:
-    test-group: [ module1, module2, module3 ]
-steps:
-  - name: Run tests for ${{ matrix.test-group }}
-    run: mvn test -pl ${{ matrix.test-group }} -B
-```
-
-**GitLab CI:**
-
-```yaml
-component-tests-module1:
-  script: mvn test -Pcomponent-only -pl module1 -B
-
-component-tests-module2:
-  script: mvn test -Pcomponent-only -pl module2 -B
-
-component-tests-module3:
-  script: mvn test -Pcomponent-only -pl module3 -B
-```
-
----
-
-## Artifact Collection
-
-### GitHub Actions Artifacts
-
-```yaml
-- name: Upload test artifacts
-  if: always()
-  uses: actions/upload-artifact@v4
-  with:
-    name: test-results
-    path: |
-      **/target/surefire-reports/**
-      **/target/cucumber-reports/**
-      **/target/site/scoverage/**
-    retention-days: 30
-```
-
-### GitLab CI Artifacts
-
-```yaml
-artifacts:
-  when: always
-  paths:
-    - '**/target/surefire-reports/'
-    - '**/target/cucumber-reports/'
-    - '**/target/site/scoverage/'
-  reports:
-    junit:
-      - '**/target/surefire-reports/TEST-*.xml'
-    coverage_report:
-      coverage_format: cobertura
-      path: '**/target/site/scoverage/cobertura.xml'
-  expire_in: 1 month
-```
-
-### Jenkins Artifacts
-
-```groovy
-post {
-    always {
-        // Archive JUnit reports
-        junit '**/target/surefire-reports/TEST-*.xml'
-
-        // Archive Cucumber reports
-        publishHTML([
-            reportDir: 'target/cucumber-reports',
-            reportFiles: 'index.html',
-            reportName: 'Cucumber Report'
-        ])
-
-        // Archive coverage reports
-        publishHTML([
-            reportDir: 'target/site/scoverage',
-            reportFiles: 'index.html',
-            reportName: 'Coverage Report'
-        ])
-
-        // Archive artifacts
-        archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true
+```json
+{
+  "Rules": [
+    {
+      "ID": "test-evidence-retention",
+      "Prefix": "tests/",
+      "Status": "Enabled",
+      "Expiration": {
+        "Days": 365
+      }
     }
+  ]
 }
 ```
 
 ---
 
-## Troubleshooting CI/CD Issues
+## Troubleshooting
 
-### Testcontainers Timeout
+### Connection Issues
 
-**Problem:** Testcontainers fail to start in CI
+**Problem:** Cannot reach Test-Probe service from CI runner
 
-**Solution:**
+**Solutions:**
+1. Verify network access from CI runner to Test-Probe URL
+2. Check firewall rules and security groups
+3. Ensure Test-Probe service is running: `curl ${TEST_PROBE_URL}/api/v1/health`
 
-```yaml
-# Increase Docker resource limits
-env:
-  TESTCONTAINERS_RYUK_DISABLED: true  # Disable Ryuk in CI
-  DOCKER_MEMORY: 4g
-  DOCKER_CPUS: 2
-```
+### Authentication Errors
 
-### Out of Memory Errors
+**Problem:** S3 upload fails
 
-**Problem:** Maven runs out of memory
+**Solutions:**
+1. Verify AWS credentials are configured correctly in CI
+2. Check IAM permissions for S3 bucket access
+3. Ensure bucket policy allows uploads from CI runner
 
-**Solution:**
+### Test Start Rejected
 
-```yaml
-env:
-  MAVEN_OPTS: -Xmx4096m -XX:MaxMetaspaceSize=512m
-```
+**Problem:** `/test/start` returns `accepted: false`
 
-### Flaky Tests
+**Possible causes:**
+- Test already running with same ID
+- Invalid block-storage-path format (must be `s3://...`)
+- Test-Probe queue is full
 
-**Problem:** Tests pass locally but fail in CI
+### Status Polling Issues
 
-**Solution:**
+**Problem:** Status endpoint returns errors
 
-```java
-// Add retries for integration tests
-@RepeatedTest(3)
-public void testOrderProcessing() {
-    // Test logic
-}
-```
+**Solutions:**
+1. Check Test-Probe service health
+2. Verify test-id is correct (UUID format)
+3. Check for circuit breaker status (503 errors)
+
+### Timeout Issues
+
+**Problem:** Test never completes
+
+**Solutions:**
+1. Check Test-Probe logs for errors
+2. Verify Kafka cluster is accessible from Test-Probe
+3. Check test configuration for long timeouts
+4. Use `/test/{testId}` DELETE to cancel stuck tests
 
 ---
 
 ## Related Documentation
 
-- [Maven Project Integration](./maven-project.md)
-- [Build Scripts](../../../scripts/README.md)
-- [Testing Guide](../../../.claude/guides/TESTING.md)
+- [API Reference](../../../test-probe-interfaces/src/main/resources/openapi.yaml) - Complete OpenAPI specification
+- [Getting Started](../GETTING-STARTED.md) - Initial setup guide
+- [Troubleshooting](../TROUBLESHOOTING.md) - Common issues and solutions
 
 ---
 
-**Document Version:** 1.0
-**Last Updated:** 2025-11-26
+**Document Version:** 2.0
+**Last Updated:** 2025-12-05

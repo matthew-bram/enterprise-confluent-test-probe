@@ -244,10 +244,19 @@ paths:
         Retrieves current status of a test execution.
 
         Returns:
-        - Test state (InProgress, Completed, Failed, etc.)
-        - Current phase
-        - Progress percentage
-        - Execution results (if completed/failed)
+        - Test state (Setup, Loading, Loaded, Testing, Completed, Exception)
+        - Block storage bucket path
+        - Test type
+        - Start/end timestamps
+        - Success flag and error message (if applicable)
+
+        State Machine:
+        - Setup: Initial state, awaiting test start
+        - Loading: Loading test bundle from block storage
+        - Loaded: Test loaded and ready for execution
+        - Testing: Test currently executing
+        - Completed: Test completed successfully
+        - Exception: Test failed with error
       operationId: getTestStatus
       parameters:
         - name: testId
@@ -266,26 +275,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/TestStatusResponse'
               examples:
-                inProgress:
+                setup:
+                  summary: Test initialized, waiting to start
                   value:
                     test-id: 550e8400-e29b-41d4-a716-446655440000
-                    state: InProgress
-                    current-phase: Executing
-                    progress-percent: 45
+                    state: Setup
+                    test-type: integration
+                loading:
+                  summary: Loading test bundle from S3
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    state: Loading
+                    bucket: s3://test-bucket/tests/my-test
+                    test-type: integration
+                testing:
+                  summary: Test currently executing
+                  value:
+                    test-id: 550e8400-e29b-41d4-a716-446655440000
+                    state: Testing
+                    bucket: s3://test-bucket/tests/my-test
+                    test-type: integration
+                    start-time: "2025-12-05T14:30:00Z"
                 completed:
+                  summary: Test completed successfully
                   value:
                     test-id: 550e8400-e29b-41d4-a716-446655440000
                     state: Completed
-                    current-phase: Completed
-                    progress-percent: 100
-                    result: All tests passed
-                failed:
+                    bucket: s3://test-bucket/tests/my-test
+                    test-type: integration
+                    start-time: "2025-12-05T14:30:00Z"
+                    end-time: "2025-12-05T14:32:15Z"
+                    success: true
+                exception:
+                  summary: Test failed with error
                   value:
                     test-id: 550e8400-e29b-41d4-a716-446655440000
-                    state: Failed
-                    current-phase: Exception
-                    progress-percent: 75
-                    error: Test execution failed - timeout waiting for events
+                    state: Exception
+                    bucket: s3://test-bucket/tests/my-test
+                    test-type: integration
+                    start-time: "2025-12-05T14:30:00Z"
+                    end-time: "2025-12-05T14:31:45Z"
+                    success: false
+                    error: "Timeout waiting for events on topic orders-created"
         '504':
           description: Actor timeout
           content:
@@ -299,10 +330,16 @@ paths:
         - Status
       summary: Get queue status
       description: |
-        Retrieves queue status, optionally filtered by testId.
+        Retrieves queue status with counts per state.
 
-        Without testId: Returns overall queue statistics
-        With testId: Returns status for specific test in queue
+        Returns counts of tests in each state:
+        - setup-count: Tests awaiting start
+        - loading-count: Tests loading from block storage
+        - loaded-count: Tests ready to execute
+        - testing-count: Tests currently executing
+        - completed-count: Tests that completed successfully
+        - exception-count: Tests that failed
+        - currently-testing: UUID of test currently executing (if any)
       operationId: getQueueStatus
       parameters:
         - name: testId
@@ -321,17 +358,39 @@ paths:
               schema:
                 $ref: '#/components/schemas/QueueStatusResponse'
               examples:
-                overall:
+                withActiveTest:
+                  summary: Queue with active test
                   value:
-                    queue-size: 5
-                    tests-in-queue:
-                      - 550e8400-e29b-41d4-a716-446655440000
-                      - 660e8400-e29b-41d4-a716-446655440001
-                      - 770e8400-e29b-41d4-a716-446655440002
+                    total-tests: 5
+                    setup-count: 2
+                    loading-count: 0
+                    loaded-count: 1
+                    testing-count: 1
+                    completed-count: 1
+                    exception-count: 0
+                    currently-testing: 550e8400-e29b-41d4-a716-446655440000
+                idle:
+                  summary: Queue with no active tests
+                  value:
+                    total-tests: 3
+                    setup-count: 0
+                    loading-count: 0
+                    loaded-count: 0
+                    testing-count: 0
+                    completed-count: 2
+                    exception-count: 1
+                    currently-testing: null
                 empty:
+                  summary: Empty queue
                   value:
-                    queue-size: 0
-                    tests-in-queue: []
+                    total-tests: 0
+                    setup-count: 0
+                    loading-count: 0
+                    loaded-count: 0
+                    testing-count: 0
+                    completed-count: 0
+                    exception-count: 0
+                    currently-testing: null
         '504':
           description: Actor timeout
           content:
@@ -476,8 +535,6 @@ components:
       required:
         - test-id
         - state
-        - current-phase
-        - progress-percent
       properties:
         test-id:
           type: string
@@ -486,47 +543,95 @@ components:
           example: 550e8400-e29b-41d4-a716-446655440000
         state:
           type: string
-          description: Current test execution state
-          example: InProgress
-        current-phase:
+          enum: [Setup, Loading, Loaded, Testing, Completed, Exception]
+          description: |
+            Current test execution state:
+            - Setup: Initial state, awaiting test start
+            - Loading: Loading test bundle from block storage
+            - Loaded: Test loaded and ready for execution
+            - Testing: Test currently executing
+            - Completed: Test completed successfully
+            - Exception: Test failed with error
+          example: Testing
+        bucket:
           type: string
-          description: Current execution phase
-          example: Executing
-        progress-percent:
-          type: integer
-          minimum: 0
-          maximum: 100
-          description: Test progress percentage
-          example: 45
-        result:
+          description: Block storage path (S3 bucket)
+          example: s3://test-bucket/tests/my-test
+        test-type:
           type: string
-          description: Test result (if completed)
-          example: All tests passed
+          description: Test type identifier
+          example: integration
+        start-time:
+          type: string
+          format: date-time
+          description: Test start timestamp (ISO 8601)
+          example: "2025-12-05T14:30:00Z"
+        end-time:
+          type: string
+          format: date-time
+          description: Test end timestamp (ISO 8601)
+          example: "2025-12-05T14:32:15Z"
+        success:
+          type: boolean
+          description: Whether test passed (null if still running)
+          example: true
         error:
           type: string
-          description: Error message (if failed)
-          example: Test execution failed - timeout waiting for events
+          description: Error message (if state is Exception)
+          example: Timeout waiting for events on topic orders-created
 
     QueueStatusResponse:
       type: object
       required:
-        - queue-size
-        - tests-in-queue
+        - total-tests
+        - setup-count
+        - loading-count
+        - loaded-count
+        - testing-count
+        - completed-count
+        - exception-count
       properties:
-        queue-size:
+        total-tests:
           type: integer
           minimum: 0
-          description: Number of tests in queue
+          description: Total number of tests in queue
           example: 5
-        tests-in-queue:
-          type: array
-          items:
-            type: string
-            format: uuid
-          description: List of test IDs in queue (FIFO order)
-          example:
-            - 550e8400-e29b-41d4-a716-446655440000
-            - 660e8400-e29b-41d4-a716-446655440001
+        setup-count:
+          type: integer
+          minimum: 0
+          description: Tests in Setup state (awaiting start)
+          example: 2
+        loading-count:
+          type: integer
+          minimum: 0
+          description: Tests in Loading state
+          example: 0
+        loaded-count:
+          type: integer
+          minimum: 0
+          description: Tests in Loaded state (ready to execute)
+          example: 1
+        testing-count:
+          type: integer
+          minimum: 0
+          description: Tests currently executing
+          example: 1
+        completed-count:
+          type: integer
+          minimum: 0
+          description: Tests that completed successfully
+          example: 1
+        exception-count:
+          type: integer
+          minimum: 0
+          description: Tests that failed with exception
+          example: 0
+        currently-testing:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of test currently executing (null if none)
+          example: 550e8400-e29b-41d4-a716-446655440000
 
     CancelTestResponse:
       type: object

@@ -1,8 +1,8 @@
 # Tutorial 1: Your First Test
 
 **Level:** Basic
-**Duration:** 30 minutes
-**Prerequisites:** Java 11+, Maven 3.8+, Docker Desktop
+**Duration:** 20 minutes
+**Prerequisites:** Access to Test-Probe service, Kafka cluster, S3 bucket
 
 ---
 
@@ -10,491 +10,383 @@
 
 By the end of this tutorial, you will:
 
-1. Set up a local Kafka environment using Testcontainers
-2. Create a simple Gherkin feature file
-3. Write Java step definitions using Test-Probe
-4. Produce and consume a JSON event
-5. Run your test and verify results
+1. Write a simple Gherkin feature file
+2. Create test configuration
+3. Submit your test to the Test-Probe service
+4. Poll for results and review evidence
 
 ## Expected Outcome
 
-You'll have a working end-to-end test that produces a JSON event to Kafka, consumes it back, and validates the payload matches.
+You'll execute an end-to-end test that produces a JSON event to Kafka, consumes it back, and validates the event payload matches—all through the Test-Probe REST API.
 
 ---
 
 ## Prerequisites Check
 
-Before starting, verify you have the required tools:
+Before starting, verify you have access to:
 
 ```bash
-# Check Java version (11+ required)
-java -version
+# Test-Probe service is running
+curl https://test-probe.example.com/api/v1/health
+# Should return: {"status": "healthy", ...}
 
-# Check Maven version (3.8+ required)
-mvn --version
+# You have AWS CLI configured for S3 access
+aws s3 ls s3://your-test-bucket/
 
-# Check Docker is running
-docker ps
-
-# Verify you can pull Testcontainers images
-docker pull confluentinc/cp-kafka:7.5.0
+# Your Kafka cluster is accessible (Test-Probe handles this)
 ```
+
+**What you need:**
+- Test-Probe service URL (provided by your platform team)
+- S3 bucket for test assets (with write access)
+- Kafka cluster already configured in Test-Probe
 
 ---
 
-## Step 1: Project Setup
+## Step 1: Create Your Feature File
 
-### 1.1 Add Test-Probe Dependency
+### 1.1 Write the Gherkin Specification
 
-Add the Test-Probe framework to your `pom.xml`:
+Create a file named `order-created.feature`:
 
-```xml
-<dependencies>
-    <!-- Test-Probe Core -->
-    <dependency>
-        <groupId>io.distia.probe</groupId>
-        <artifactId>test-probe-core</artifactId>
-        <version>1.0.0</version>
-        <scope>test</scope>
-    </dependency>
+```gherkin
+Feature: Order Created Event Validation
+  As a platform engineer
+  I want to validate that OrderCreated events flow correctly through Kafka
+  So that I can ensure my event-driven architecture works as expected
 
-    <!-- Cucumber for BDD -->
-    <dependency>
-        <groupId>io.cucumber</groupId>
-        <artifactId>cucumber-java</artifactId>
-        <version>7.14.0</version>
-        <scope>test</scope>
-    </dependency>
-
-    <!-- JUnit 4 (Cucumber compatible) -->
-    <dependency>
-        <groupId>junit</groupId>
-        <artifactId>junit</artifactId>
-        <version>4.13.2</version>
-        <scope>test</scope>
-    </dependency>
-
-    <!-- Jackson for JSON serialization -->
-    <dependency>
-        <groupId>com.fasterxml.jackson.core</groupId>
-        <artifactId>jackson-databind</artifactId>
-        <version>2.15.2</version>
-        <scope>test</scope>
-    </dependency>
-</dependencies>
-```
-
-### 1.2 Configure Testcontainers
-
-Test-Probe uses Testcontainers to manage Kafka infrastructure. No additional configuration needed - it's automatic!
-
----
-
-## Step 2: Create Your Event Model
-
-### 2.1 Define the TestEvent POJO
-
-Create `src/test/java/com/yourcompany/events/OrderCreatedEvent.java`:
-
-```java
-package com.yourcompany.events;
-
-import com.fasterxml.jackson.annotation.JsonTypeName;
-import com.kjetland.jackson.jsonSchema.annotations.JsonSchemaTitle;
-
-@JsonSchemaTitle("OrderCreatedEvent")
-@JsonTypeName("OrderCreatedEvent")
-public class OrderCreatedEvent {
-
-    private String eventType;
-    private String eventVersion;
-    private String orderId;
-    private String customerId;
-    private double amount;
-    private long timestamp;
-
-    // Default constructor (required for Jackson)
-    public OrderCreatedEvent() {}
-
-    // Full constructor
-    public OrderCreatedEvent(String eventType, String eventVersion,
-                            String orderId, String customerId,
-                            double amount, long timestamp) {
-        this.eventType = eventType;
-        this.eventVersion = eventVersion;
-        this.orderId = orderId;
-        this.customerId = customerId;
-        this.amount = amount;
-        this.timestamp = timestamp;
-    }
-
-    // Getters and setters
-    public String getEventType() { return eventType; }
-    public void setEventType(String eventType) { this.eventType = eventType; }
-
-    public String getEventVersion() { return eventVersion; }
-    public void setEventVersion(String eventVersion) { this.eventVersion = eventVersion; }
-
-    public String getOrderId() { return orderId; }
-    public void setOrderId(String orderId) { this.orderId = orderId; }
-
-    public String getCustomerId() { return customerId; }
-    public void setCustomerId(String customerId) { this.customerId = customerId; }
-
-    public double getAmount() { return amount; }
-    public void setAmount(double amount) { this.amount = amount; }
-
-    public long getTimestamp() { return timestamp; }
-    public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
-
-    @Override
-    public String toString() {
-        return "OrderCreatedEvent{" +
-                "eventType='" + eventType + '\'' +
-                ", eventVersion='" + eventVersion + '\'' +
-                ", orderId='" + orderId + '\'' +
-                ", customerId='" + customerId + '\'' +
-                ", amount=" + amount +
-                ", timestamp=" + timestamp +
-                '}';
-    }
-}
+  Scenario: Produce and consume an OrderCreated event
+    Given I have a topic "orders-created"
+    When I produce a JSON event to topic "orders-created":
+      """
+      {
+        "eventType": "OrderCreatedEvent",
+        "eventVersion": "v1",
+        "orderId": "order-123",
+        "customerId": "customer-456",
+        "amount": 99.99,
+        "timestamp": 1701820800000
+      }
+      """
+    Then I should receive an event from topic "orders-created" within 10 seconds
+    And the event should match JSONPath "$.orderId" with value "order-123"
+    And the event should match JSONPath "$.customerId" with value "customer-456"
+    And the event should match JSONPath "$.amount" with value 99.99
 ```
 
 **Key Points:**
-- `@JsonSchemaTitle` - Required for Schema Registry registration
-- `@JsonTypeName` - Identifies the event type in polymorphic scenarios
-- Default constructor - Required for Jackson deserialization
-- Getters/setters - Standard JavaBean pattern
+- Use business language that describes the test intent
+- Each scenario should be independent and self-contained
+- Timeouts (e.g., "within 10 seconds") handle async nature of Kafka
 
 ---
 
-## Step 3: Write Your First Feature File
+## Step 2: Create Test Configuration
 
-### 3.1 Create the Gherkin Specification
+### 2.1 Write the Configuration File
 
-Create `src/test/resources/features/FirstTest.feature`:
+Create a file named `test-config.yaml`:
 
-```gherkin
-Feature: First Order Event Test
-  As a developer learning Test-Probe
-  I want to produce and consume an OrderCreated event
-  So that I can validate my Kafka integration works
+```yaml
+# Test-Probe Configuration
+test-probe:
+  # Kafka connection (references cluster configured in Test-Probe service)
+  kafka:
+    cluster: default  # Use the default cluster configured in Test-Probe
 
-  Background: Test Environment
-    Given the test environment is initialized
-    And Kafka and Schema Registry are running
+  # Test settings
+  test:
+    timeout-seconds: 60
+    cleanup-topics: false  # Keep topics after test for debugging
 
-  Scenario: Produce and consume OrderCreated event
-    Given I have an OrderCreated event with orderId "order-123"
-    When I produce the event to topic "orders-created"
-    Then I should be able to consume the event from topic "orders-created"
-    And the consumed event should match the produced event
+  # Serialization
+  serialization:
+    key-format: cloudevents  # CloudEvents.io specification
+    value-format: json       # JSON serialization
+
+  # Consumer settings
+  consumer:
+    auto-offset-reset: earliest
+    group-id-prefix: test-probe
 ```
 
-**Gherkin Best Practices:**
-- Use business language (not technical jargon)
-- Each scenario should be independent
-- Background steps set up common preconditions
+---
+
+## Step 3: Organize Your Test Assets
+
+### 3.1 Directory Structure
+
+Create the following structure locally:
+
+```
+my-first-test/
+├── features/
+│   └── order-created.feature
+└── test-config.yaml
+```
 
 ---
 
-## Step 4: Write Java Step Definitions
+## Step 4: Submit Your Test
 
-### 4.1 Create Step Definition Class
+### 4.1 Initialize Test Session
 
-Create `src/test/java/com/yourcompany/steps/OrderCreatedSteps.java`:
+Call the Test-Probe API to get a test ID:
 
-```java
-package com.yourcompany.steps;
+```bash
+# Initialize test session
+RESPONSE=$(curl -sf -X POST "https://test-probe.example.com/api/v1/test/initialize" \
+  -H "Content-Type: application/json")
 
-import io.distia.probe.core.pubsub.models.CloudEvent;
-import io.distia.probe.core.pubsub.models.ConsumedResult;
-import io.distia.probe.core.pubsub.models.ConsumedSuccess;
-import io.distia.probe.core.pubsub.models.ProduceResult;
-import io.distia.probe.core.pubsub.models.ProducingSuccess;
-import io.distia.probe.core.services.cucumber.CucumberContext;
-import io.distia.probe.core.testutil.CloudEventFactory;
-import io.distia.probe.core.testutil.IntegrationTestDsl;
-import com.yourcompany.events.OrderCreatedEvent;
-import io.cucumber.java.en.Given;
-import io.cucumber.java.en.When;
-import io.cucumber.java.en.Then;
-import io.cucumber.java.en.And;
+# Extract test ID
+TEST_ID=$(echo "$RESPONSE" | jq -r '.["test-id"]')
+echo "Test ID: $TEST_ID"
+```
 
-import java.util.UUID;
-
-import static org.junit.Assert.*;
-
-public class OrderCreatedSteps {
-
-    // Test context - holds state between steps
-    private UUID testId;
-    private CloudEvent cloudEventKey;
-    private OrderCreatedEvent orderEvent;
-    private String currentTopic;
-    private String correlationId;
-    private ConsumedSuccess consumedResult;
-
-    @Given("the test environment is initialized")
-    public void theTestEnvironmentIsInitialized() {
-        // Get test ID from Cucumber context (injected by framework)
-        this.testId = CucumberContext.getTestId();
-        assertNotNull("Test ID should be available", testId);
-        System.out.println("Test initialized with ID: " + testId);
-    }
-
-    @And("Kafka and Schema Registry are running")
-    public void kafkaAndSchemaRegistryAreRunning() {
-        // Testcontainers handles this automatically
-        // Schema registration happens automatically on first produce
-        System.out.println("Kafka infrastructure ready");
-    }
-
-    @Given("I have an OrderCreated event with orderId {string}")
-    public void iHaveAnOrderCreatedEventWithOrderId(String orderId) {
-        // Create correlation ID for event lookup
-        this.correlationId = UUID.randomUUID().toString();
-
-        // Create CloudEvent key (standard envelope)
-        this.cloudEventKey = CloudEventFactory.createWithCorrelationId(
-            correlationId,
-            "OrderCreatedEvent",  // Event type
-            "v1"                  // Event version
-        );
-
-        // Create OrderCreated payload
-        this.orderEvent = new OrderCreatedEvent(
-            "OrderCreatedEvent",
-            "v1",
-            orderId,
-            "customer-456",
-            99.99,
-            System.currentTimeMillis()
-        );
-
-        System.out.println("Created OrderCreated event: " + orderEvent);
-    }
-
-    @When("I produce the event to topic {string}")
-    public void iProduceTheEventToTopic(String topic) {
-        this.currentTopic = topic;
-
-        System.out.println("Producing event to topic: " + topic);
-        System.out.println("CloudEvent key correlationId: " + correlationId);
-
-        // Produce event using Test-Probe DSL
-        ProduceResult result = IntegrationTestDsl.produceEventBlocking(
-            testId,
-            topic,
-            cloudEventKey,
-            orderEvent,
-            OrderCreatedEvent.class
-        );
-
-        // Verify production succeeded
-        assertTrue("Event production should succeed",
-                   result instanceof ProducingSuccess);
-
-        System.out.println("Event produced successfully");
-    }
-
-    @Then("I should be able to consume the event from topic {string}")
-    public void iShouldBeAbleToConsumeTheEventFromTopic(String topic) {
-        System.out.println("Consuming event from topic: " + topic);
-
-        // Retry loop for eventual consistency
-        int maxAttempts = 10;
-        ConsumedResult result = null;
-
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                result = IntegrationTestDsl.fetchConsumedEventBlocking(
-                    testId,
-                    topic,
-                    correlationId,
-                    OrderCreatedEvent.class
-                );
-
-                // Success - break out of retry loop
-                System.out.println("Event consumed on attempt " + attempt);
-                break;
-
-            } catch (Exception e) {
-                if (attempt < maxAttempts) {
-                    System.out.println("Event not ready, retrying in 1s...");
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        fail("Interrupted while waiting for event");
-                    }
-                } else {
-                    fail("Event consumption failed after " + maxAttempts +
-                         " attempts: " + e.getMessage());
-                }
-            }
-        }
-
-        // Verify consumption succeeded
-        assertNotNull("Event should be consumed", result);
-        assertTrue("Expected ConsumedSuccess", result instanceof ConsumedSuccess);
-
-        this.consumedResult = (ConsumedSuccess) result;
-        System.out.println("Event consumed successfully");
-    }
-
-    @And("the consumed event should match the produced event")
-    public void theConsumedEventShouldMatchTheProducedEvent() {
-        assertNotNull("Consumed result should not be null", consumedResult);
-
-        // Verify CloudEvent key
-        CloudEvent consumedKey = (CloudEvent) consumedResult.key();
-        assertEquals("Event type should match",
-                     cloudEventKey.type(), consumedKey.type());
-        assertEquals("Correlation ID should match",
-                     cloudEventKey.correlationid(), consumedKey.correlationid());
-
-        // Verify OrderCreated payload
-        OrderCreatedEvent consumed = (OrderCreatedEvent) consumedResult.value();
-        assertEquals("Event type should match",
-                     orderEvent.getEventType(), consumed.getEventType());
-        assertEquals("Event version should match",
-                     orderEvent.getEventVersion(), consumed.getEventVersion());
-        assertEquals("Order ID should match",
-                     orderEvent.getOrderId(), consumed.getOrderId());
-        assertEquals("Customer ID should match",
-                     orderEvent.getCustomerId(), consumed.getCustomerId());
-        assertEquals("Amount should match",
-                     orderEvent.getAmount(), consumed.getAmount(), 0.01);
-
-        System.out.println("Event verification complete - all fields match!");
-    }
+**Response:**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
-**Key Concepts:**
-- **CloudEvent** - Standard envelope for all Kafka keys (contains correlationId)
-- **IntegrationTestDsl** - Java-friendly wrapper around ProbeScalaDsl
-- **CucumberContext** - Framework-injected test ID
-- **Retry Logic** - Events are consumed asynchronously, retry with backoff
-- **Type Safety** - Pass `OrderCreatedEvent.class` for serialization
+### 4.2 Upload Test Assets to S3
+
+Deploy your feature files and configuration to block storage:
+
+```bash
+# Set the S3 path using your test ID
+S3_PATH="s3://your-test-bucket/tests/${TEST_ID}"
+
+# Upload feature files
+aws s3 cp ./my-first-test/features/ "${S3_PATH}/features/" --recursive
+
+# Upload configuration
+aws s3 cp ./my-first-test/test-config.yaml "${S3_PATH}/test-config.yaml"
+
+echo "Deployed test assets to ${S3_PATH}"
+```
+
+**Verify upload:**
+```bash
+aws s3 ls "${S3_PATH}/" --recursive
+# Should show:
+# features/order-created.feature
+# test-config.yaml
+```
+
+### 4.3 Start Test Execution
+
+Trigger the test:
+
+```bash
+RESPONSE=$(curl -sf -X POST "https://test-probe.example.com/api/v1/test/start" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"test-id\": \"${TEST_ID}\",
+    \"block-storage-path\": \"${S3_PATH}\",
+    \"test-type\": \"integration\"
+  }")
+
+echo "$RESPONSE" | jq .
+```
+
+**Response:**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "accepted": true,
+  "test-type": "integration"
+}
+```
 
 ---
 
-## Step 5: Run Your Test
+## Step 5: Monitor Test Execution
 
-### 5.1 Execute with Maven
+### 5.1 Poll for Status
+
+Check the test status:
 
 ```bash
-# Run the specific feature file
-mvn test -Dtest=CucumberRunner -Dcucumber.filter.tags="@FirstTest"
-
-# Or run all tests
-mvn test
+curl -sf "https://test-probe.example.com/api/v1/test/${TEST_ID}/status" | jq .
 ```
 
-### 5.2 Expected Output
+**In Progress:**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "InProgress",
+  "current-phase": "Executing",
+  "progress-percent": 50
+}
+```
+
+**Completed:**
+```json
+{
+  "test-id": "550e8400-e29b-41d4-a716-446655440000",
+  "state": "Completed",
+  "current-phase": "Completed",
+  "progress-percent": 100,
+  "result": "All tests passed"
+}
+```
+
+### 5.2 Simple Polling Script
+
+Use this script to wait for completion:
+
+```bash
+#!/bin/bash
+TEST_ID="$1"
+MAX_WAIT=120
+ELAPSED=0
+
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+  RESPONSE=$(curl -sf "https://test-probe.example.com/api/v1/test/${TEST_ID}/status")
+  STATE=$(echo "$RESPONSE" | jq -r '.state')
+  PROGRESS=$(echo "$RESPONSE" | jq -r '.["progress-percent"]')
+
+  echo "Status: ${STATE} (${PROGRESS}%)"
+
+  if [ "$STATE" = "Completed" ]; then
+    echo "Test passed!"
+    exit 0
+  elif [ "$STATE" = "Failed" ]; then
+    echo "Test failed: $(echo $RESPONSE | jq -r '.error')"
+    exit 1
+  fi
+
+  sleep 5
+  ELAPSED=$((ELAPSED + 5))
+done
+
+echo "Timeout waiting for test completion"
+exit 1
+```
+
+---
+
+## Step 6: Review Evidence
+
+### 6.1 Download Evidence
+
+After the test completes, evidence is available in S3:
+
+```bash
+# Download evidence
+mkdir -p ./evidence
+aws s3 cp "${S3_PATH}/evidence/" ./evidence/ --recursive
+
+# List downloaded files
+ls -la ./evidence/
+```
+
+### 6.2 Evidence Structure
 
 ```
-[INFO] Running com.yourcompany.CucumberRunner
-Test initialized with ID: 550e8400-e29b-41d4-a716-446655440000
-Kafka infrastructure ready
-Created OrderCreated event: OrderCreatedEvent{eventType='OrderCreatedEvent', ...}
-Producing event to topic: orders-created
-CloudEvent key correlationId: 7c9e6679-7425-40de-944b-e07fc1f90ae7
-Event produced successfully
-Consuming event from topic: orders-created
-Event consumed on attempt 1
-Event verification complete - all fields match!
+evidence/
+└── cucumber.json    # Cucumber test execution report (JSON format)
+```
 
-1 Scenarios (1 passed)
-4 Steps (4 passed)
-0m5.234s
+The `cucumber.json` file contains detailed test results including:
+- Scenario pass/fail status
+- Step execution times
+- Error messages and stack traces (if any)
+- Feature and scenario metadata
 
-[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
-[INFO] BUILD SUCCESS
+### 6.3 View Results
+
+**Parse the Cucumber JSON report:**
+```bash
+# Check if tests passed (all scenarios have "passed" status)
+cat ./evidence/cucumber.json | jq '.[].elements[].steps[].result.status' | grep -v passed && echo "FAILED" || echo "PASSED"
+```
+
+**Extract scenario results:**
+```bash
+cat ./evidence/cucumber.json | jq '[.[].elements[] | {name: .name, status: (.steps | map(.result.status) | if all(. == "passed") then "passed" else "failed" end)}]'
+```
+
+```json
+[
+  {
+    "name": "Produce and consume a simple event",
+    "status": "passed"
+  }
+]
 ```
 
 ---
 
 ## Troubleshooting Common Issues
 
-### Issue 1: Docker Not Running
+### Issue 1: Test-Probe Service Unavailable
 
 **Symptom:**
 ```
-org.testcontainers.containers.ContainerLaunchException:
-  Could not create/start container
+curl: (7) Failed to connect to test-probe.example.com
 ```
 
 **Fix:**
-```bash
-# Start Docker Desktop
-# Verify Docker is running
-docker ps
-```
+- Verify Test-Probe service URL is correct
+- Check network connectivity / VPN
+- Contact your platform team to verify service status
 
 ---
 
-### Issue 2: Schema Registration Fails
+### Issue 2: S3 Upload Fails
 
 **Symptom:**
 ```
-io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException:
-  Subject not found
+An error occurred (AccessDenied) when calling the PutObject operation
 ```
 
 **Fix:**
-- Ensure `@JsonSchemaTitle` annotation is present on your event class
-- Verify Schema Registry Testcontainer is running
-- Check Schema Registry logs: `docker logs <container-id>`
+- Verify AWS credentials are configured
+- Check IAM permissions for the S3 bucket
+- Ensure bucket name is correct
 
 ---
 
-### Issue 3: Event Not Consumed (Timeout)
+### Issue 3: Test Start Rejected
 
 **Symptom:**
-```
-Event consumption failed after 10 attempts: ConsumerNotAvailableException
+```json
+{"accepted": false, "message": "Invalid block-storage-path"}
 ```
 
 **Fix:**
-- Increase retry attempts (change `maxAttempts` to 20)
-- Increase retry delay (change `Thread.sleep(1000)` to `Thread.sleep(2000)`)
-- Check Kafka topic exists: View Kafka logs or use Kafka tools
+- Ensure `block-storage-path` starts with `s3://`
+- Verify the path matches where you uploaded files
+- Check that test-config.yaml is present in the path
 
 ---
 
-### Issue 4: Jackson Deserialization Error
+### Issue 4: Test Timeout
 
-**Symptom:**
-```
-com.fasterxml.jackson.databind.exc.InvalidDefinitionException:
-  Cannot construct instance of OrderCreatedEvent (no Creators, like default constructor, exist)
-```
+**Symptom:** Test stays in "InProgress" state indefinitely
 
 **Fix:**
-- Add default no-args constructor to your event class
-- Ensure all fields have getters and setters
+- Check Test-Probe logs (contact platform team)
+- Verify Kafka cluster is accessible from Test-Probe
+- Review your feature file for long timeout values
+- Cancel the test: `curl -X DELETE "https://test-probe.example.com/api/v1/test/${TEST_ID}"`
 
 ---
 
-### Issue 5: Port Conflicts
+### Issue 5: Event Not Found (Assertion Failure)
 
 **Symptom:**
-```
-BindException: Address already in use
+```json
+{"state": "Failed", "error": "Timeout waiting for events on topic orders-created"}
 ```
 
 **Fix:**
-```bash
-# Find processes using common ports
-lsof -i :9092  # Kafka
-lsof -i :8081  # Schema Registry
-
-# Kill conflicting processes or stop local Kafka
-```
+- Increase the timeout in your feature file (e.g., "within 30 seconds")
+- Verify the topic name matches exactly
+- Check that your Kafka cluster is configured correctly in Test-Probe
 
 ---
 
@@ -502,12 +394,10 @@ lsof -i :8081  # Schema Registry
 
 Congratulations! You've completed your first Test-Probe test. You learned how to:
 
-- Set up Testcontainers for local Kafka infrastructure
-- Create a JSON event model with Jackson annotations
-- Write Gherkin specifications for event-driven tests
-- Use IntegrationTestDsl to produce and consume events
-- Handle eventual consistency with retry logic
-- Verify CloudEvent keys and event payloads
+- Write Gherkin feature files for event-driven testing
+- Create test configuration for Test-Probe
+- Use the Test-Probe REST API to submit and monitor tests
+- Review test evidence and reports
 
 ---
 
@@ -515,20 +405,19 @@ Congratulations! You've completed your first Test-Probe test. You learned how to
 
 Ready to level up? Try these follow-on tutorials:
 
-1. **[Tutorial 2: Working with JSON Events](02-json-events.md)** - Learn JSON Schema validation, schema evolution, and advanced patterns
-2. **[Tutorial 3: Multi-Format Serialization](03-avro-protobuf.md)** - Add Avro and Protobuf support for high-performance scenarios
-3. **[Tutorial 4: Cross-Datacenter Testing](04-multi-cluster.md)** - Test event propagation across multiple Kafka clusters
+1. **[Tutorial 2: Working with JSON Events](02-json-events.md)** - Advanced JSON matching, schema validation, and event patterns
+2. **[Tutorial 3: Avro and Protobuf Serialization](03-avro-protobuf.md)** - Use schema-based serialization for production scenarios
+3. **[Tutorial 4: Multi-Cluster Testing](04-multi-cluster.md)** - Test event flows across multiple Kafka clusters
 
 ---
 
 ## Additional Resources
 
-- **[ProbeScalaDsl API Reference](../../api/probe-scala-dsl-api.md)** - Complete API documentation
-- **[SerdesFactory API Reference](../../api/serdes-factory-api.md)** - Serialization details
-- **[CloudEvent Specification](https://cloudevents.io/)** - Industry standard event envelope
+- **[CI/CD Pipeline Integration](../integration/ci-cd-pipelines.md)** - Automate tests in your pipelines
+- **[CloudEvents Specification](https://cloudevents.io/)** - Industry standard event envelope
+- **[API Reference](../../../test-probe-interfaces/src/main/resources/openapi.yaml)** - Complete OpenAPI specification
 
 ---
 
-**Document Version:** 1.0.0
-**Last Updated:** 2025-11-26
-**Tested With:** test-probe-core 1.0.0, Java 11, Maven 3.8.6
+**Document Version:** 2.0.0
+**Last Updated:** 2025-12-05

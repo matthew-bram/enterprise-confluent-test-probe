@@ -13,6 +13,7 @@ A BDD testing framework for **functionally validating event-driven systems again
 ## Why Test-Probe?
 
 - **Functional Testing for Kafka Services**: Validate CQRS, CQERS, event sourcing, and other event-driven patterns
+- **Event Democratization Testing**: Validate consumers handle multiple event schemas per topic correctly
 - **Real Cluster Testing**: Test against your actual Kafka deployments, not mocks or local containers
 - **BDD/Gherkin Scenarios**: Write business-readable tests that bridge the gap between technical and domain teams
 - **Multi-Cloud Support**: Evidence storage across AWS S3, Azure Blob Storage, and Google Cloud Storage
@@ -63,6 +64,38 @@ Feature: Customer Read Model Hydration
 ### Cross-Cell / Cross-Service Testing
 
 Validate event contracts between services, ensuring upstream producers and downstream consumers remain compatible.
+
+### Event Democratization (Multi-Schema Topics)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        Shared Domain Topic                               │
+│                     (e.g., "customer-events")                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│  CustomerCreated   │  CustomerUpdated   │  CustomerDeleted   │  ...     │
+│  (Schema v1)       │  (Schema v2)       │  (Schema v1)       │          │
+└─────────────────────────────────────────────────────────────────────────┘
+                              │
+           ┌──────────────────┼──────────────────┐
+           ▼                  ▼                  ▼
+    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+    │  Marketing  │    │   Billing   │    │  Analytics  │
+    │   Service   │    │   Service   │    │   Service   │
+    └─────────────┘    └─────────────┘    └─────────────┘
+```
+
+Enterprise Kafka deployments often consolidate multiple event types onto shared domain topics, enabling:
+
+- **Reduced Topic Sprawl**: Fewer topics to manage, monitor, and secure
+- **Domain Cohesion**: All events for a bounded context live together
+- **Consumer Flexibility**: Services subscribe once and filter by event type
+
+**Test-Probe validates event democratization by:**
+
+- Producing multiple event types (different schemas) to a single topic
+- Verifying consumers correctly filter and process only relevant event types
+- Testing schema compatibility when multiple versions coexist on a topic
+- Validating that consumers gracefully ignore unknown event types
 
 ## Assumptions
 

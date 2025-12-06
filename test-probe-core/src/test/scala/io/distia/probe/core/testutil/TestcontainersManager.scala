@@ -6,6 +6,7 @@ import org.testcontainers.utility.DockerImageName
 
 import java.net.{HttpURLConnection, URL}
 import java.util.Properties
+import java.util.concurrent.{CountDownLatch, TimeUnit}
 import scala.collection.mutable
 import scala.jdk.CollectionConverters.*
 import scala.util.Try
@@ -29,9 +30,9 @@ private[core] object TestcontainersManager {
   private val maxAttempts: Int = if isCI then 90 else 30
   private val stabilizationDelayMs: Int = if isCI then 10000 else 1000
 
-  // Ready flag - ensures all callers wait until cluster is fully stabilized
-  // This prevents race conditions when tests run in parallel
-  @volatile private var clusterReady: Boolean = false
+  // Latch ensures all callers block until cluster is fully stabilized
+  // First caller creates the cluster and releases the latch; others wait
+  private val clusterReadyLatch = new CountDownLatch(1)
 
   sys.addShutdownHook {
     println(s"[TestcontainersManager] JVM shutdown detected, cleaning up ${clusters.size} cluster(s)...")
@@ -42,38 +43,30 @@ private[core] object TestcontainersManager {
     clusters.getOrElseUpdate(name, createCluster(name))
   }
 
+  /**
+   * Ensures the default cluster is started and fully stabilized.
+   *
+   * Thread-safe: First caller creates the cluster and releases the latch.
+   * All other callers block on the latch until cluster is ready.
+   */
   def start(): Unit = {
-    // Fast path: if already ready, return immediately
-    if clusterReady then return
-
-    synchronized {
-      // Double-check after acquiring lock
-      if clusterReady then return
-
-      if !clusters.contains("default") then
-        // We are the first - create the cluster and mark ready
-        getOrCreateCluster("default")
-        clusterReady = true
-        println(s"[TestcontainersManager] Cluster ready flag set")
-        return
+    val shouldCreate = synchronized {
+      val needsCreation = !clusters.contains("default")
+      if needsCreation then getOrCreateCluster("default")
+      needsCreation
     }
 
-    // Another thread is setting up - wait for ready flag
-    if !clusterReady then waitForReady()
+    if shouldCreate then
+      clusterReadyLatch.countDown()
+      println(s"[TestcontainersManager] Cluster ready, latch released")
+    else
+      awaitClusterReady()
   }
 
-  private def waitForReady(): Unit = {
-    val maxWaitMs = 120000 // 2 minutes max wait
-    val startTime = System.currentTimeMillis()
-
-    while (!clusterReady && (System.currentTimeMillis() - startTime) < maxWaitMs) {
-      Thread.sleep(100)
-    }
-
-    if !clusterReady then
+  private def awaitClusterReady(): Unit = {
+    val acquired = clusterReadyLatch.await(2, TimeUnit.MINUTES)
+    if !acquired then
       throw new RuntimeException("Timed out waiting for cluster to become ready")
-
-    println(s"[TestcontainersManager] Ready signal received, cluster available")
   }
 
   def getKafkaBootstrapServers: String = getOrCreateCluster("default").bootstrapServers

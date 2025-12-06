@@ -192,14 +192,10 @@ After completion, evidence is available at the same block storage path:
 
 ```
 s3://test-bucket/tests/{test-id}/
-├── features/           # Your test assets (input)
-├── test-config.yaml    # Your configuration (input)
-├── evidence/           # Generated evidence (output)
-│   ├── cucumber-report.html
-│   ├── cucumber-report.json
-│   └── test-evidence.json
-└── results/
-    └── summary.json
+├── features/              # Your test assets (input)
+├── topic-directives.yml   # Your Kafka topic configuration (input)
+└── evidence/              # Generated evidence (output)
+    └── cucumber.json      # Cucumber test execution report
 ```
 
 ---
@@ -333,7 +329,6 @@ jobs:
 
           mkdir -p ./evidence
           aws s3 cp "${S3_PATH}/evidence/" ./evidence/ --recursive || true
-          aws s3 cp "${S3_PATH}/results/" ./evidence/ --recursive || true
 
       - name: Upload Evidence Artifacts
         if: always()
@@ -497,12 +492,15 @@ quality-gate:
   needs: [ integration-test ]
   script:
     - |
-      if [ -f evidence/summary.json ]; then
-        PASSED=$(jq -r '.passed' evidence/summary.json)
-        if [ "$PASSED" != "true" ]; then
-          echo "Quality gate failed"
+      # Parse cucumber.json to determine pass/fail
+      if [ -f evidence/cucumber.json ]; then
+        # Check if any step has a non-passed status
+        FAILED=$(jq '[.[].elements[].steps[].result.status] | map(select(. != "passed")) | length' evidence/cucumber.json)
+        if [ "$FAILED" -gt 0 ]; then
+          echo "Quality gate failed: $FAILED steps did not pass"
           exit 1
         fi
+        echo "Quality gate passed: all steps passed"
       fi
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -635,7 +633,6 @@ pipeline {
                 sh """
                     mkdir -p ./evidence
                     aws s3 cp "s3://${S3_BUCKET}/tests/${TEST_ID}/evidence/" ./evidence/ --recursive || true
-                    aws s3 cp "s3://${S3_BUCKET}/tests/${TEST_ID}/results/" ./evidence/ --recursive || true
                 """
             }
         }
@@ -688,25 +685,18 @@ The test status response includes information you can use for quality gates:
 
 ### Evidence-Based Gates
 
-Download the `results/summary.json` for detailed metrics:
-
-```json
-{
-  "passed": true,
-  "total-scenarios": 15,
-  "passed-scenarios": 15,
-  "failed-scenarios": 0,
-  "duration-ms": 45230
-}
-```
+Parse `evidence/cucumber.json` for detailed metrics:
 
 ```bash
-# Example quality gate script
-PASSED=$(jq -r '.passed' evidence/summary.json)
-FAILED_COUNT=$(jq -r '.["failed-scenarios"]' evidence/summary.json)
+# Example quality gate script using cucumber.json
+FAILED_STEPS=$(jq '[.[].elements[].steps[].result.status] | map(select(. != "passed")) | length' evidence/cucumber.json)
+TOTAL_SCENARIOS=$(jq '[.[].elements[]] | length' evidence/cucumber.json)
+PASSED_SCENARIOS=$(jq '[.[].elements[] | select(all(.steps[].result.status == "passed"))] | length' evidence/cucumber.json)
 
-if [ "$PASSED" != "true" ] || [ "$FAILED_COUNT" -gt 0 ]; then
-  echo "Quality gate failed: ${FAILED_COUNT} scenarios failed"
+echo "Results: ${PASSED_SCENARIOS}/${TOTAL_SCENARIOS} scenarios passed"
+
+if [ "$FAILED_STEPS" -gt 0 ]; then
+  echo "Quality gate failed: ${FAILED_STEPS} steps did not pass"
   exit 1
 fi
 ```
@@ -721,15 +711,10 @@ After test completion, evidence is uploaded to block storage:
 
 ```
 s3://bucket/tests/{test-id}/
-├── features/                    # Input: Your test files
-├── test-config.yaml             # Input: Your configuration
-├── evidence/                    # Output: Generated evidence
-│   ├── cucumber-report.html     # Human-readable report
-│   ├── cucumber-report.json     # Machine-readable report
-│   ├── junit-report.xml         # JUnit format for CI tools
-│   └── test-evidence.json       # Detailed evidence bundle
-└── results/
-    └── summary.json             # Quick pass/fail summary
+├── features/              # Input: Your feature files
+├── topic-directives.yml   # Input: Kafka topic configuration
+└── evidence/              # Output: Generated evidence
+    └── cucumber.json      # Cucumber test execution report
 ```
 
 ### Downloading Evidence
@@ -737,9 +722,6 @@ s3://bucket/tests/{test-id}/
 ```bash
 # Download all evidence
 aws s3 cp "s3://${BUCKET}/tests/${TEST_ID}/evidence/" ./evidence/ --recursive
-
-# Download just the summary
-aws s3 cp "s3://${BUCKET}/tests/${TEST_ID}/results/summary.json" ./summary.json
 ```
 
 ### Long-Term Storage

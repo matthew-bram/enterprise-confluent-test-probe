@@ -278,7 +278,6 @@ After the test completes, evidence is available in S3:
 # Download evidence
 mkdir -p ./evidence
 aws s3 cp "${S3_PATH}/evidence/" ./evidence/ --recursive
-aws s3 cp "${S3_PATH}/results/" ./evidence/ --recursive
 
 # List downloaded files
 ls -la ./evidence/
@@ -288,35 +287,35 @@ ls -la ./evidence/
 
 ```
 evidence/
-├── cucumber-report.html    # Human-readable test report
-├── cucumber-report.json    # Machine-readable results
-├── junit-report.xml        # JUnit format for CI tools
-├── test-evidence.json      # Detailed evidence bundle
-└── summary.json            # Quick pass/fail summary
+└── cucumber.json    # Cucumber test execution report (JSON format)
 ```
+
+The `cucumber.json` file contains detailed test results including:
+- Scenario pass/fail status
+- Step execution times
+- Error messages and stack traces (if any)
+- Feature and scenario metadata
 
 ### 6.3 View Results
 
-**Open the HTML report:**
+**Parse the Cucumber JSON report:**
 ```bash
-open ./evidence/cucumber-report.html  # macOS
-# or
-xdg-open ./evidence/cucumber-report.html  # Linux
+# Check if tests passed (all scenarios have "passed" status)
+cat ./evidence/cucumber.json | jq '.[].elements[].steps[].result.status' | grep -v passed && echo "FAILED" || echo "PASSED"
 ```
 
-**Check the summary:**
+**Extract scenario results:**
 ```bash
-cat ./evidence/summary.json | jq .
+cat ./evidence/cucumber.json | jq '[.[].elements[] | {name: .name, status: (.steps | map(.result.status) | if all(. == "passed") then "passed" else "failed" end)}]'
 ```
 
 ```json
-{
-  "passed": true,
-  "total-scenarios": 1,
-  "passed-scenarios": 1,
-  "failed-scenarios": 0,
-  "duration-ms": 3245
-}
+[
+  {
+    "name": "Produce and consume a simple event",
+    "status": "passed"
+  }
+]
 ```
 
 ---

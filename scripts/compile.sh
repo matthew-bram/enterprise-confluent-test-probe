@@ -102,7 +102,7 @@ main() {
 
   # Compile (skip all tests)
   log_progress "Compiling modules (this may take a moment)"
-  if ./mvnw install -pl "$modules" -Dmaven.test.skip=true -q $MAVEN_OPTS; then
+  if mvn install -pl "$modules" -Dmaven.test.skip=true -q $MAVEN_OPTS; then
     local elapsed=$(get_elapsed_time)
     log_success "Compilation successful for $MODULE_NAME! ✓"
     log_info "  Total execution time: $elapsed"
@@ -113,7 +113,7 @@ main() {
     log_error "Compilation failed for $MODULE_NAME (exit code: $exit_code)"
     log_error "  Total execution time: $elapsed"
     log_info "Run with -X for detailed error messages:"
-    log_info "  ./mvnw install -pl $modules -Dmaven.test.skip=true -X"
+    log_info "  mvn install -pl $modules -Dmaven.test.skip=true -X"
     return $exit_code
   fi
 }

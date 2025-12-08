@@ -148,7 +148,7 @@ All 9 Scala-dependent libraries confirmed compatible with Scala 3.3.6:
 
 ### Phase 3: Migration Mode Compilation
 
-**Command**: `./mvnw compile -pl test-probe-core -q`
+**Command**: `mvn compile -pl test-probe-core -q`
 
 **Result**: ✅ BUILD SUCCESS (11 warnings, 0 errors)
 
@@ -208,7 +208,7 @@ def receiveBehavior(
 
 ### Phase 5: Unit Testing
 
-**Command**: `./mvnw test -Punit-only -pl test-probe-core`
+**Command**: `mvn test -Punit-only -pl test-probe-core`
 
 **Result**: ✅ 247/247 tests passed
 - **Execution Time**: 6:16 min (baseline: 5:40 min, +10% acceptable)
@@ -218,7 +218,7 @@ def receiveBehavior(
 
 ### Phase 6: Component Testing
 
-**Command**: `./mvnw test -Pcomponent-only -pl test-probe-core`
+**Command**: `mvn test -Pcomponent-only -pl test-probe-core`
 
 **Result**: ✅ 198/198 tests passed
 - **Execution Time**: 5:31 min (baseline: 5:04 min, +8% acceptable)
@@ -245,7 +245,7 @@ Could not find artifact org.scoverage:scalac-scoverage-domain_3:jar:2.2.2 in cen
 
 **Fix**: Updated `scalacPluginVersion` from `2.2.2` → `2.3.0` in `pom.xml`
 
-**Command**: `./mvnw clean test scoverage:report -pl test-probe-core`
+**Command**: `mvn clean test scoverage:report -pl test-probe-core`
 
 **Result**: ✅ BUILD SUCCESS
 - **Statement Coverage**: 63.80%

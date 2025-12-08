@@ -88,13 +88,13 @@ colima status
 
 ```bash
 # Unit tests only
-./mvnw test -Punit-only
+mvn test -Punit-only
 
 # Component tests only
-./mvnw test -Pcomponent-only
+mvn test -Pcomponent-only
 
 # All tests with coverage
-./mvnw test scoverage:report -Pcoverage
+mvn test scoverage:report -Pcoverage
 ```
 
 ### Performance Baselines

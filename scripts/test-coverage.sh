@@ -157,7 +157,7 @@ main() {
   if [[ -n "$deps" ]]; then
     log_info "Compiling dependencies: $deps"
     log_progress "Compiling $deps (this may take a moment)"
-    ./mvnw install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
+    mvn install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
       log_error "Failed to compile dependencies"
       exit 1
     }
@@ -180,7 +180,7 @@ main() {
   log_progress "Generating coverage report (this may take 3-5 minutes total)"
 
   # Clean + coverage report (scoverage:report runs tests in forked lifecycle)
-  if ./mvnw clean scoverage:report -pl "$MODULE_NAME" $parallel_opts $MAVEN_OPTS 2>&1 | tee /tmp/coverage-output.log; then
+  if mvn clean scoverage:report -pl "$MODULE_NAME" $parallel_opts $MAVEN_OPTS 2>&1 | tee /tmp/coverage-output.log; then
     TEST_EXIT_CODE=0
   else
     TEST_EXIT_CODE=$?

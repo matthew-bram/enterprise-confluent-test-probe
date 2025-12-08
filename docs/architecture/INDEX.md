@@ -530,13 +530,13 @@ Blueprints provide detailed technical documentation for specific components and 
 **Commands Quick Reference:**
 ```bash
 # Unit tests only - fast feedback (~5-10s)
-./mvnw test -Punit-only -pl test-probe-core -am
+mvn test -Punit-only -pl test-probe-core -am
 
 # Component tests only - full integration (~4-5min)
-./mvnw test -Pcomponent-only -pl test-probe-core -am
+mvn test -Pcomponent-only -pl test-probe-core -am
 
 # Aggregate coverage across all modules
-./mvnw clean test scoverage:report -Pcoverage-aggregate
+mvn clean test scoverage:report -Pcoverage-aggregate
 ```
 
 **Related Documentation:**

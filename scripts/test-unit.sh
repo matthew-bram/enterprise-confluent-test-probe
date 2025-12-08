@@ -93,7 +93,7 @@ main() {
   if [[ -n "$deps" ]]; then
     log_info "Compiling dependencies: $deps"
     log_progress "Compiling $deps (this may take a moment)"
-    ./mvnw install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
+    mvn install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
       log_error "Failed to compile dependencies"
       exit 1
     }
@@ -105,7 +105,7 @@ main() {
   log_step_timed 3 3 "Running unit tests for $MODULE_NAME"
   log_progress "Executing unit tests"
 
-  if ./mvnw test -Punit-only -pl "$MODULE_NAME" $MAVEN_OPTS 2>&1 | tee /tmp/unit-test-output.log; then
+  if mvn test -Punit-only -pl "$MODULE_NAME" $MAVEN_OPTS 2>&1 | tee /tmp/unit-test-output.log; then
     # Parse test summary
     local test_count=$(grep "Tests run:" /tmp/unit-test-output.log | tail -1 | grep -o "Tests run: [0-9]*" | grep -o "[0-9]*")
     local elapsed=$(get_elapsed_time)
@@ -142,7 +142,7 @@ main() {
     echo ""
     log_info "For full details, see: /tmp/unit-test-output.log"
     log_info "Run with -X for stack traces:"
-    log_info "  ./mvnw test -X -Punit-only -pl $MODULE_NAME"
+    log_info "  mvn test -X -Punit-only -pl $MODULE_NAME"
 
     return $exit_code
   fi

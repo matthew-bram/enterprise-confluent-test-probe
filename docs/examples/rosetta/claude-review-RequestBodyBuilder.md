@@ -1,7 +1,7 @@
 # Claude's Independent Peer Review: RequestBodyBuilder.scala
 
 **Date**: 2025-10-23
-**File**: `/Users/matthewbram/projects/test-probe/test-probe-services/src/main/scala/io/distia/probe/services/vault/RequestBodyBuilder.scala`
+**File**: `test-probe-services/src/main/scala/io/distia/probe/services/vault/RequestBodyBuilder.scala`
 **Lines of Code**: 161
 **Reviewer**: Claude Code (Independent Peer Review)
 **Review Type**: Security, Performance, Edge Cases, API Design

@@ -65,17 +65,15 @@ validate_resources() {
 }
 
 validate_maven() {
-  log_info "Checking Maven wrapper..."
+  log_info "Checking Maven installation..."
 
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-
-  if [[ ! -f "$script_dir/mvnw" ]]; then
-    log_error "Maven wrapper (mvnw) not found in $script_dir"
+  if ! command -v mvn > /dev/null 2>&1; then
+    log_error "Maven (mvn) not found in PATH"
+    log_error "Please install Maven and ensure it's in your PATH"
     return 1
   fi
 
-  log_success "Maven wrapper found"
+  log_success "Maven found"
   return 0
 }
 

@@ -26,7 +26,7 @@ Before you begin, ensure you have the following:
 | Software | Version | Purpose |
 |----------|---------|---------|
 | **Java JDK** | 21+ | Runtime environment (OpenJDK, Oracle JDK, or Amazon Corretto) |
-| **Maven** | 3.9+ | Build tool (or use included wrapper `./mvnw`) |
+| **Maven** | 3.9+ | Build tool |
 
 ### Required Infrastructure
 
@@ -353,7 +353,7 @@ git clone https://github.com/your-org/test-probe.git
 cd test-probe
 
 # Build from source
-./mvnw clean install -DskipTests
+mvn clean install -DskipTests
 
 # Run tests to verify
 ./scripts/test-unit.sh -m core

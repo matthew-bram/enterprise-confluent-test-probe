@@ -149,7 +149,7 @@ main() {
   log_step_timed 3 6 "Cleaning previous build artifacts"
   cd "$PROJECT_ROOT"
   log_progress "Cleaning target directories"
-  ./mvnw clean -q $MAVEN_OPTS
+  mvn clean -q $MAVEN_OPTS
 
   # Step 4: Run tests with coverage instrumentation
   log_step_timed 4 6 "Running tests with coverage (all modules)"
@@ -162,7 +162,7 @@ main() {
   log_progress "Generating coverage reports"
 
   # scoverage:report will compile with instrumentation, run tests, and generate report
-  if ./mvnw scoverage:report \
+  if mvn scoverage:report \
       -Dcucumber.parallel.enabled=true \
       -Dcucumber.parallel.threads=4 \
       $MAVEN_OPTS 2>&1 | tee /tmp/ci-build-output.log; then
@@ -259,7 +259,7 @@ main() {
 
   log_progress "Building fat JAR (this may take a moment)"
 
-  if ./mvnw package -DskipTests -q $MAVEN_OPTS; then
+  if mvn package -DskipTests -q $MAVEN_OPTS; then
     log_success "Packaging complete"
   else
     log_error "Packaging failed"

@@ -106,7 +106,7 @@ main() {
   if [[ -n "$deps" ]]; then
     log_info "Compiling dependencies: $deps"
     log_progress "Compiling $deps (this may take a moment)"
-    ./mvnw install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
+    mvn install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
       log_error "Failed to compile dependencies"
       exit 1
     }
@@ -126,7 +126,7 @@ main() {
 
   log_progress "Running unit and component tests (this may take 3-5 minutes)"
 
-  if ./mvnw test -pl "$MODULE_NAME" $parallel_opts $MAVEN_OPTS 2>&1 | tee /tmp/all-test-output.log; then
+  if mvn test -pl "$MODULE_NAME" $parallel_opts $MAVEN_OPTS 2>&1 | tee /tmp/all-test-output.log; then
     TEST_EXIT_CODE=0
   else
     TEST_EXIT_CODE=$?
@@ -171,7 +171,7 @@ main() {
     echo ""
     log_info "For full details, see: /tmp/all-test-output.log"
     log_info "Run with -X for stack traces:"
-    log_info "  ./mvnw test -X -pl $MODULE_NAME"
+    log_info "  mvn test -X -pl $MODULE_NAME"
 
     return $TEST_EXIT_CODE
   fi

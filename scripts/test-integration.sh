@@ -115,7 +115,7 @@ main() {
   if [[ -n "$deps" ]]; then
     log_info "Compiling dependencies: $deps"
     log_progress "Compiling $deps (this may take a moment)"
-    ./mvnw install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
+    mvn install -pl "$deps" -Dmaven.test.skip=true -q $MAVEN_OPTS || {
       log_error "Failed to compile dependencies"
       exit 1
     }
@@ -151,7 +151,7 @@ main() {
   # Maven bug MNG-2190: -D properties with spaces in values don't work reliably
   export CUCUMBER_FILTER_TAGS="@IntegrationTest and not @Ignore"
 
-  if ./mvnw "${mvn_args[@]}" 2>&1 | tee /tmp/integration-test-output.log; then
+  if mvn "${mvn_args[@]}" 2>&1 | tee /tmp/integration-test-output.log; then
     TEST_EXIT_CODE=0
   else
     TEST_EXIT_CODE=$?
@@ -196,7 +196,7 @@ main() {
     echo ""
     log_info "For full details, see: /tmp/integration-test-output.log"
     log_info "Run with -X for stack traces:"
-    log_info "  ./mvnw test -X -Pintegration-only -pl $MODULE_NAME -Dcucumber.filter.tags=\"@IntegrationTest\""
+    log_info "  mvn test -X -Pintegration-only -pl $MODULE_NAME -Dcucumber.filter.tags=\"@IntegrationTest\""
 
     return $TEST_EXIT_CODE
   fi

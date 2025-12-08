@@ -492,7 +492,7 @@ Scripts validate the environment before execution:
 - ✅ Docker daemon is running
 - ✅ Docker has sufficient RAM (8GB min, 16GB recommended)
 - ✅ kubectl is installed (for component tests)
-- ✅ Maven wrapper (mvnw) exists
+- ✅ Maven (mvn) is installed and in PATH
 - ✅ Module exists in project
 
 **Example failure**:

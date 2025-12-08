@@ -138,7 +138,7 @@ cd enterprise-confluent-test-probe
 # Set environment variables or update application.conf
 
 # Build the project
-./mvnw compile
+mvn compile
 
 # Run unit tests
 ./scripts/test-unit.sh
@@ -187,13 +187,13 @@ test-probe-parent/
 
 ```bash
 # Development (default)
-./mvnw test
+mvn test
 
 # Unit tests only
-./mvnw test -Punit-only
+mvn test -Punit-only
 
 # Coverage report
-./mvnw scoverage:report -Pcoverage
+mvn scoverage:report -Pcoverage
 ```
 
 ## Contributing

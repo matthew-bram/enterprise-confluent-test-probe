@@ -18,7 +18,7 @@ resolve_module_name() {
 
   # Check if it's already a full name
   case "$short_name" in
-    test-probe-common|test-probe-core|test-probe-services|test-probe-interfaces)
+    test-probe-common|test-probe-core|test-probe-services|test-probe-external-services|test-probe-interfaces)
       echo "$short_name"
       return 0
       ;;
@@ -38,13 +38,17 @@ resolve_module_name() {
       echo "test-probe-services"
       return 0
       ;;
+    external)
+      echo "test-probe-external-services"
+      return 0
+      ;;
     interfaces)
       echo "test-probe-interfaces"
       return 0
       ;;
     *)
       log_error "Unknown module: '$short_name'"
-      log_info "Available modules: common, core, services, interfaces"
+      log_info "Available modules: common, core, services, external, interfaces"
       return 1
       ;;
   esac
@@ -66,6 +70,9 @@ get_module_deps() {
     test-probe-services)
       echo "test-probe-common,test-probe-core"
       ;;
+    test-probe-external-services)
+      echo "test-probe-common,test-probe-core"
+      ;;
     test-probe-interfaces)
       echo "test-probe-common,test-probe-core,test-probe-services"
       ;;
@@ -83,16 +90,18 @@ select_module_interactive() {
   echo "  1) common      (test-probe-common)"
   echo "  2) core        (test-probe-core)"
   echo "  3) services    (test-probe-services)"
-  echo "  4) interfaces  (test-probe-interfaces)"
+  echo "  4) external    (test-probe-external-services)"
+  echo "  5) interfaces  (test-probe-interfaces)"
   echo ""
 
-  read -p "Select module (1-4): " selection
+  read -p "Select module (1-5): " selection
 
   case "$selection" in
     1) echo "test-probe-common" ;;
     2) echo "test-probe-core" ;;
     3) echo "test-probe-services" ;;
-    4) echo "test-probe-interfaces" ;;
+    4) echo "test-probe-external-services" ;;
+    5) echo "test-probe-interfaces" ;;
     *)
       log_error "Invalid selection: $selection"
       return 1

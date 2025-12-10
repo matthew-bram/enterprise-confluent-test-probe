@@ -38,7 +38,7 @@ ${COLOR_BOLD}USAGE:${COLOR_RESET}
   ./scripts/test-integration.sh [-m MODULE] [-h|--help]
 
 ${COLOR_BOLD}OPTIONS:${COLOR_RESET}
-  -m, --module MODULE    Module to test (common|core|services|interfaces)
+  -m, --module MODULE    Module to test (common|core|services|external|interfaces)
   -h, --help             Show this help message
 
 ${COLOR_BOLD}EXAMPLES:${COLOR_RESET}
@@ -65,10 +65,11 @@ ${COLOR_BOLD}FEATURES:${COLOR_RESET}
   ✓ Test failure summaries
 
 ${COLOR_BOLD}AVAILABLE MODULES:${COLOR_RESET}
-  common      test-probe-common      (no dependencies)
-  core        test-probe-core        (depends on: common)
-  services    test-probe-services    (depends on: common, core)
-  interfaces  test-probe-interfaces  (depends on: common, core, services)
+  common      test-probe-common              (no dependencies)
+  core        test-probe-core                (depends on: common)
+  services    test-probe-services            (depends on: common, core)
+  external    test-probe-external-services   (depends on: common, core)
+  interfaces  test-probe-interfaces          (depends on: common, core, services)
 
 ${COLOR_BOLD}ENVIRONMENT VARIABLES:${COLOR_RESET}
   SKIP_K8S_SCALING=1     Skip Kubernetes scaling (for CI environments)

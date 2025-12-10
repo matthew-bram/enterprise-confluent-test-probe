@@ -19,6 +19,7 @@
         <module>test-probe-core</module>
         <module>test-probe-java-api</module>
         <module>test-probe-services</module>
+        <module>test-probe-external-services</module>
         <module>test-probe-interfaces</module>
         <module>test-probe</module>
     </modules>
